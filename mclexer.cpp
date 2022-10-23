@@ -63,10 +63,12 @@ TOKEN gettok() {
       return returnTok("return", RETURN);
     if (IdentifierStr == "true") {
       BoolVal = true;
+      // printf("LEXXER: Bool Value %d\n", BoolVal);
       return returnTok("true", BOOL_LIT);
     }
     if (IdentifierStr == "false") {
       BoolVal = false;
+      // printf("LEXXER: Bool Value %d\n", BoolVal);
       return returnTok("false", BOOL_LIT);
     }
 
@@ -128,6 +130,7 @@ TOKEN gettok() {
       } while (isdigit(LastChar));
 
       FloatVal = strtof(NumStr.c_str(), nullptr);
+      // printf("LEXXER: Float Value %f\n", FloatVal);
       return returnTok(NumStr, FLOAT_LIT);
     } else {
       do { // Start of Number: [0-9]+
@@ -144,9 +147,12 @@ TOKEN gettok() {
         } while (isdigit(LastChar));
 
         FloatVal = strtof(NumStr.c_str(), nullptr);
+        // printf("LEXXER: Float Value %f\n", FloatVal);
         return returnTok(NumStr, FLOAT_LIT);
+        
       } else { // Integer : [0-9]+
         IntVal = strtod(NumStr.c_str(), nullptr);
+        // printf("LEXXER: Int Value %d\n", IntVal);
         return returnTok(NumStr, INT_LIT);
       }
     }

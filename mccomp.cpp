@@ -8,6 +8,12 @@ using namespace llvm;
 using namespace llvm::sys;
 
 FILE *pFile;
+std::string IdentifierStr; // Filled in if IDENT
+int IntVal = 0;                // Filled in if INT_LIT
+bool BoolVal = false;              // Filled in if BOOL_LIT
+float FloatVal = 0.0;            // Filled in if FLOAT_LIT
+int lineNo = 0;
+int columnNo = 0;
 
 //===----------------------------------------------------------------------===//
 // Code Generation
@@ -21,8 +27,7 @@ static std::unique_ptr<Module> TheModule;
 // AST Printer  
 //===----------------------------------------------------------------------===//
 
-inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
-                                     const ASTNode &ast) {
+inline llvm::raw_ostream &operator << (llvm::raw_ostream &os, const ASTNode &ast) {
   os << ast.to_string();
   return os;
 }
@@ -52,7 +57,7 @@ int main(int argc, char **argv) {
   //           CurTok.type);
   //   getNextToken();
   // }
-  fprintf(stderr, "Lexer Finished\n");
+  // fprintf(stderr, "Lexer Finished\n");
 
   // println hi
 
@@ -61,8 +66,11 @@ int main(int argc, char **argv) {
 
   // Run the parser now.
   getNextToken();
-  parser();
+  std::unique_ptr<Program> RootASTNode = parser();
   fprintf(stderr, "Parsing Finished\n");
+
+  fprintf(stderr, "%s\n", RootASTNode->to_string().c_str());
+  // llvm::outs() << RootASTNode << "\n";
 
   //********************* Start printing final IR **************************
   // Print out all of the generated code into a file called output.ll

@@ -35,10 +35,16 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-
 #include <optional>
 
 extern FILE *pFile;
+
+extern std::string IdentifierStr; // Filled in if IDENT
+extern int IntVal;                // Filled in if INT_LIT
+extern bool BoolVal;              // Filled in if BOOL_LIT
+extern float FloatVal;            // Filled in if FLOAT_LIT
+extern int lineNo;
+extern int columnNo;
 
 // LEXER DEFINITIONS
 
@@ -111,18 +117,27 @@ struct TOKEN {
   int columnNo;
 };
 
-static std::string IdentifierStr; // Filled in if IDENT
-static int IntVal;                // Filled in if INT_LIT
-static bool BoolVal;              // Filled in if BOOL_LIT
-static float FloatVal;            // Filled in if FLOAT_LIT
-static std::string StringVal;     // Filled in if String Literal
-static int lineNo, columnNo;
-
 TOKEN returnTok(std::string lexVal, int tok_type);
 
 TOKEN gettok();
 
 // PARSER DEFINITIONS
+
+static std::map<int, int> BinopPrecedence = {
+  {OR,  10},
+  {AND, 20},
+  {EQ,  30},
+  {NE, 40},
+  {LE, 50},
+  {LT,  60},
+  {GE, 70},
+  {GE,  80},
+  {PLUS, 90},
+  {MINUS, 100},
+  {ASTERIX, 110},
+  {DIV, 120},
+  {MOD, 130}
+};
 
 static TOKEN CurTok;
 static std::deque<TOKEN> tok_buffer;
@@ -133,26 +148,35 @@ static std::deque<TOKEN> tok_buffer;
 
 // AST DEFINITIONS
 
-/// ASTnode - Base class for all AST nodes.
-class ASTNode {
-public:
-  virtual ~ASTNode() {}
-  virtual llvm::Value *codegen() = 0;
-  virtual std::string to_string() const { return "[ASTNode]"; };
-};
-
 #include "mcast.hh"
 
-std::unique_ptr<ASTNode> parser();
+std::unique_ptr<Program> parser();
 
-int parse_extern_list(std::vector<std::unique_ptr<ASTNode>> &list);
-std::unique_ptr<ASTNode> parse_extern();
+int parse_extern_list(std::vector<std::unique_ptr<ExternDecl>> &list);
+std::unique_ptr<ExternDecl> parse_extern();
 
-int parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list);
-std::unique_ptr<ASTNode> parse_decl();
+int parse_decl_list(std::vector<std::unique_ptr<GlobalDecl>> &list);
+std::unique_ptr<GlobalDecl> parse_decl();
 
-std::optional<std::vector<std::unique_ptr<ASTNode>>> parse_params();
-int parse_param_list(std::vector<std::unique_ptr<ASTNode>> &list);
-std::unique_ptr<ASTNode> parse_param();
+std::optional<std::vector<std::unique_ptr<Param>>> parse_params();
+int parse_param_list(std::vector<std::unique_ptr<Param>> &list);
+std::unique_ptr<Param> parse_param();
 
-std::unique_ptr<ASTNode> parse_block();
+std::unique_ptr<Block> parse_block();
+
+int parse_local_decls(std::vector<std::unique_ptr<LocalDecl>> &list);
+std::unique_ptr<LocalDecl> parse_local_decl();
+
+int parse_stmt_list(std::vector<std::unique_ptr<ASTNode>> &list);
+std::unique_ptr<ASTNode> parse_stmt();
+
+std::unique_ptr<ASTNode> parse_expr_stmt();
+std::unique_ptr<WhileStmt> parse_while_stmt();
+std::unique_ptr<IfStmt> parse_if_stmt();
+std::unique_ptr<ReturnStmt> parse_return_stmt();
+std::unique_ptr<ASTNode> parse_expr();
+std::unique_ptr<ASTNode> parse_primary();
+std::unique_ptr<ASTNode> parse_literal();
+std::unique_ptr<ASTNode> parse_bin_op_rhs(int exprPrec, std::unique_ptr<ASTNode> LHS);
+
+int parse_args(std::vector<std::unique_ptr<ASTNode>> &list);
