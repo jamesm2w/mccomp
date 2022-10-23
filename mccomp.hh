@@ -36,6 +36,8 @@
 #include <utility>
 #include <vector>
 
+#include <optional>
+
 extern FILE *pFile;
 
 // LEXER DEFINITIONS
@@ -141,12 +143,16 @@ public:
 
 #include "mcast.hh"
 
- std::unique_ptr<ASTNode> parser();
- void parse_extern_list(std::vector<std::unique_ptr<ASTNode>> &list);
- std::unique_ptr<ASTNode> parse_extern();
- void parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list);
- std::unique_ptr<ASTNode> parse_decl();
- std::vector<std::unique_ptr<ASTNode>> parse_params();
- void parse_param_list(std::vector<std::unique_ptr<ASTNode>> &list);
- std::unique_ptr<ASTNode> parse_param();
- std::unique_ptr<ASTNode> parse_block();
+std::unique_ptr<ASTNode> parser();
+
+int parse_extern_list(std::vector<std::unique_ptr<ASTNode>> &list);
+std::unique_ptr<ASTNode> parse_extern();
+
+int parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list);
+std::unique_ptr<ASTNode> parse_decl();
+
+std::optional<std::vector<std::unique_ptr<ASTNode>>> parse_params();
+int parse_param_list(std::vector<std::unique_ptr<ASTNode>> &list);
+std::unique_ptr<ASTNode> parse_param();
+
+std::unique_ptr<ASTNode> parse_block();

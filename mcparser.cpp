@@ -4,18 +4,6 @@
 #include <string>
 #include <stdexcept>
 
-// StackOverflow code for string formatting
-template<typename ... Args>
-std::string string_format( const std::string& format, Args ... args )
-{
-    int size_s = std::snprintf( nullptr, 0, format.c_str(), args ... ) + 1; // Extra space for '\0'
-    // if( size_s <= 0 ){ throw std::runtime_error( "Error during formatting." ); }
-    auto size = static_cast<size_t>( size_s );
-    std::unique_ptr<char[]> buf( new char[ size ] );
-    std::snprintf( buf.get(), size, format.c_str(), args ... );
-    return std::string( buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
-}
-
 //===----------------------------------------------------------------------===//
 // Parser
 //===----------------------------------------------------------------------===//
@@ -51,9 +39,47 @@ std::unique_ptr<ASTNode> LogErrorS(const std::string Str) {
     return nullptr;
 }
 
-void debug_print() {
-    fprintf(stderr, "Debug: CurTok Type: %d Lexeme %s Line %d Col %d\n", CurTok.type, CurTok.lexeme.c_str(), CurTok.lineNo, CurTok.columnNo);
+int errorCode = 0;
+
+// Throw an error from a void function
+template<typename ... Args>
+void ThrowErrorV( const std::string& format, Args ... args ) {
+
+    errorCode = 1;
+
+    int size_s = std::snprintf( nullptr, 0, "%s", format.c_str(), args ... ) + 1; // Extra space for '\0'
+    if( size_s <= 0 ){ fprintf(stderr, "Error in formating error message"); return; }
+    auto size = static_cast<size_t>( size_s );
+    std::unique_ptr<char[]> buf( new char[ size ] );
+    std::snprintf( buf.get(), size, "%s", format.c_str(), args ... );
+
+    fprintf(stderr, "Syntax Error on Line %d Col %d got \"%s\" ", CurTok.lineNo, CurTok.columnNo, CurTok.lexeme.c_str() );
+    fprintf(stderr, "%s", std::string( buf.get(), buf.get() + size - 1 ).c_str()); // We don't want the '\0' inside
+    fprintf(stderr, "\n");
 }
+
+// Throw an error in a function and return a null pointer.
+template<typename ... Args>
+std::unique_ptr<ASTNode> ThrowError( const std::string &format, Args ... args) {
+    ThrowErrorV(format, args ...);
+    return nullptr;
+}
+
+// Print out the current token.
+void DebugPrint() {
+    fprintf(stderr, "Debug: CurTok[Type %d Line %d Col %d Lexeme \"%s\"]\n", CurTok.type, CurTok.lineNo, CurTok.columnNo, CurTok.lexeme.c_str());
+}
+
+// Checks current token matches the given type and then gets the next one. Returns true if match. False otherwise.
+// False matches don't get moved on from.
+bool EatToken(int type) {
+    if (CurTok.type == type) {
+        getNextToken();
+        return true;
+    } else {
+        return false;
+    }
+} 
 
 /* Add function calls for each production */
 
@@ -62,85 +88,101 @@ void debug_print() {
 std::unique_ptr<ASTNode> parser() {
     std::vector<std::unique_ptr<ASTNode>> extern_list;
     std::vector<std::unique_ptr<ASTNode>> decl_list;
-    debug_print();
-    parse_extern_list(extern_list);
-    debug_print();
-    parse_decl_list(decl_list);
-    debug_print();
+    DebugPrint();
+
+    if (parse_extern_list(extern_list) < 0) {
+        return nullptr;
+    };
+    
+    DebugPrint();
+    
+    if (parse_decl_list(decl_list) < 0) {
+        return nullptr;
+    }
+
     return std::make_unique<Program>(std::move(extern_list), std::move(decl_list));
 }
 
 // ExternList  ::= Extern ExternList'
 // ExternList' ::= Extern ExternList'
 //               | epsilon
-void parse_extern_list(std::vector<std::unique_ptr<ASTNode>> &list) {
+int parse_extern_list(std::vector<std::unique_ptr<ASTNode>> &list) {
     switch (CurTok.type) {
-        case EXTERN:
-            list.push_back(std::move(parse_extern()));
-            debug_print();
-            parse_extern_list(list);
-            debug_print();
-            break;
+        case EXTERN: {
+            std::unique_ptr<ASTNode> extern_item = parse_extern();
+            if (extern_item == nullptr) {
+                return -1;
+            }
+            list.push_back(std::move(extern_item));
+            return parse_extern_list(list);
+        }
         case VOID_TOK:
         case BOOL_TOK:
         case FLOAT_TOK:
         case INT_TOK:
-            return;
+            return 0;
         default:
-            debug_print();
-            LogErrorS(string_format("Expected extern or following declaration. Got %s", CurTok.lexeme.c_str()));
-            return;
+            ThrowErrorV("Expected one of \"extern\", \"void\", \"bool\", \"float\", \"int\"");
+            return -1;
     }
 }
 
 // Extern ::= extern TypeSpec IDENT ( Params ) ;
 std::unique_ptr<ASTNode> parse_extern() {
-    if (CurTok.type != EXTERN) {
-        return LogError("Syntax Error: Expected extern keyword");
+    
+    if (!EatToken(EXTERN)) {
+        return ThrowError("Expected \"extern\"");
     }
-    TOKEN type = getNextToken();
-    debug_print();
-    TOKEN ident = getNextToken();
-    debug_print();
-    if (getNextToken().type != LPAR) {
-        return LogError("Syntax Error: Expected open bracket");
+
+    TOKEN type = CurTok;
+    getNextToken();
+    
+    TOKEN ident = CurTok;
+    getNextToken();
+    
+    if (!EatToken(LPAR)) {
+        return ThrowError("Expected \"(\"");
     }
-    debug_print();
-    getNextToken(); // EAT LPAR
-    debug_print();
-    std::vector<std::unique_ptr<ASTNode>> params = parse_params();
-    if (CurTok.type != RPAR) {
-        return LogError("Syntax Error: Expected close bracket");
+    
+    std::optional<std::vector<std::unique_ptr<ASTNode>>> params = parse_params();
+    if (!params.has_value()) {
+        return nullptr;
     }
-    debug_print();
-    if (getNextToken().type != SC) {
-        return LogError("Syntax Error: Expected semicolon to end extern");
+    
+    if (!EatToken(RPAR)) {
+        return ThrowError("Expected \")\"");
     }
-    debug_print();
-    getNextToken(); // Eat semicolon
-    debug_print();
-    return std::make_unique<ExternDecl>(type, ident, std::move(params));
+    
+    if (!EatToken(SC)) {
+        return ThrowError("Expected \";\"");
+    }
+    
+    return std::make_unique<ExternDecl>(type, ident, std::move(params.value()));
 }
 
 // DeclList  ::= Decl DeclList'
 // DeclList' ::= Decl DeclList'
 //             | epsilon
-void parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list) {
+int parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list) {
     switch (CurTok.type) {
         case VOID_TOK:
         case BOOL_TOK:
         case FLOAT_TOK:
-        case INT_TOK:
-            list.push_back(std::move(parse_decl()));
-            parse_decl_list(list);
-            break;
+        case INT_TOK: {
+            std::unique_ptr<ASTNode> decl_item = parse_decl();
+            if (decl_item == nullptr) {
+                return -1;
+            }
+            list.push_back(std::move(decl_item));
+            return parse_decl_list(list);
+        }
         case EOF_TOK:
             if (list.size() >= 1) { // Need at least one decl 
-                return;
+                return 0;
             }
         default:
-            LogErrorS(string_format("Syntax Error: Expected keyword or EOF. Got %s", CurTok.lexeme.c_str()));
-            return;
+            ThrowErrorV("Expected at least one variable or function declaration");
+            return -1;
     }
 }
 
@@ -152,86 +194,115 @@ void parse_decl_list(std::vector<std::unique_ptr<ASTNode>> &list) {
 std::unique_ptr<ASTNode> parse_decl() {
 
     TOKEN type = CurTok;
-    TOKEN ident = getNextToken();
-    getNextToken(); // Eat identifier
+    getNextToken();
+    TOKEN ident = CurTok;
+    getNextToken();
 
-    if (type.type == VOID_TOK || getNextToken().type == LPAR) {
-        // Function Decl
-        std::vector<std::unique_ptr<ASTNode>> params = parse_params();
-        if (getNextToken().type != RPAR) {
-            return LogError("Syntax Error: Expected right bracket end of params");
+    if (type.type == VOID_TOK || CurTok.type == LPAR) {
+        if (!EatToken(LPAR)) {
+            return ThrowError("Expected \"(\"");
         }
+        // Function Decl
+        std::optional<std::vector<std::unique_ptr<ASTNode>>> params = parse_params();
+        if (!params.has_value()) {
+            return nullptr;
+        }
+        
+        if (!EatToken(RPAR)) {
+            return ThrowError("Expected \")\"");
+        }
+
         auto block = parse_block();
-        return std::make_unique<GlobalDecl>(type, ident, std::move(params), std::move(block));
+        if (block == nullptr) {
+            return nullptr;
+        }
 
+        return std::make_unique<GlobalDecl>(type, ident, std::move(params.value()), std::move(block));
     } else if (CurTok.type == SC) {
-        getNextToken(); // CONSUME
-        return std::make_unique<GlobalDecl>(type, ident);
 
+        if (!EatToken(SC)) {
+            return ThrowError("Expected \";\"");
+        }
+
+        return std::make_unique<GlobalDecl>(type, ident);
     } else {
-        return LogErrorS(string_format("Syntax Error: Expected ; or function declaration got %s", CurTok.lexeme.c_str())); 
+        return ThrowError("Expected \"(\" or \";\""); 
     }
 }
+
+//TODO: Error checking for params & rest of parser & ast printing
 
 // Params ::= Paramlist
 //          | void
 // 		 | epsilon
-std::vector<std::unique_ptr<ASTNode>> parse_params() {
+std::optional<std::vector<std::unique_ptr<ASTNode>>> parse_params() {
     std::vector<std::unique_ptr<ASTNode>> list;
+
     switch (CurTok.type) {
         case VOID_TOK:
             getNextToken();
         case RPAR:
-            return list;
+            return std::optional{ std::move(list) };
         case BOOL_TOK:
         case FLOAT_TOK:
         case INT_TOK:
-            parse_param_list(list);
-            return list;
+            if (parse_param_list(list) < 0) {
+                return std::nullopt;
+            }
+            return std::optional{ std::move(list) };
         default:
-            LogErrorS(string_format("Syntax Error: Expected VOID, ')' or Parameter. Got %s", CurTok.lexeme.c_str()));
-            return list;
+            return std::nullopt;
     }
 }
 
 // ParamList  ::= Param ParamList'
 // ParamList' ::= , Param ParamList'
 // 			 | epsilon
-void parse_param_list(std::vector<std::unique_ptr<ASTNode>> &list) {
+int parse_param_list(std::vector<std::unique_ptr<ASTNode>> &list) {
     switch (CurTok.type) {
         case BOOL_TOK:
         case FLOAT_TOK:
         case INT_TOK:
             if (list.size() == 0) {
-                list.push_back(std::move(parse_param()));
-                parse_param_list(list);
-            
+                auto param_item = parse_param();
+                if (param_item == nullptr) {
+                    return -1;
+                }
+                list.push_back(std::move(param_item));
+                return parse_param_list(list);
             } else {
-                LogError("Syntax Error: Expected a COMMA since param list has size >= 1");
-                return;
+                ThrowErrorV("Expected \",\" before more parameters");
+                return -1;
             }
             break;
         case COMMA:
             if (list.size() >= 1) {
-                getNextToken(); 
-                list.push_back(std::move(parse_param()));
+                getNextToken(); // Eat the comma
+                auto param_item = parse_param();
+                if (param_item == nullptr) {
+                    return -1;
+                }
+                
+                list.push_back(std::move(param_item));
+                return parse_param_list(list);
             } else {
-                LogError("Syntax Error: Expected BOOL, FLOAT, INT since param list has size < 1");
-                return;
+                ThrowErrorV("Expected \"bool\", \"float\", \"int\" in parameter declaration first");
+                return -1;
             }
             break;
         case RPAR:
-            return;
+            return 0;
         default:
-            LogErrorS(string_format("Syntax Error: Unexpected token %s. Expected parameter or continuation of list", CurTok.lexeme.c_str()));
-            return;
+            return -1;
     }
 }
 
 // Param ::= VarType IDENT
 std::unique_ptr<ASTNode> parse_param() {
-    TOKEN type = getNextToken();
-    TOKEN ident = getNextToken();
+    TOKEN type = CurTok;
+    getNextToken();
+    TOKEN ident = CurTok;
+    getNextToken();
     return std::make_unique<Param>(type, ident);
 }
 
@@ -239,5 +310,9 @@ std::unique_ptr<ASTNode> parse_block() {
     std::vector<std::unique_ptr<ASTNode>> local_decls;
     std::vector<std::unique_ptr<ASTNode>> stmt_list;
 
+    while (getNextToken().type != EOF_TOK) {
+        fprintf(stderr, "DBG: Skipping\t");
+        DebugPrint();
+    }
     return std::make_unique<Block>(std::move(local_decls), std::move(stmt_list));
 }
