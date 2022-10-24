@@ -4,321 +4,204 @@ using namespace llvm;
 using namespace llvm::sys;
 using namespace std;
 
+// Tree Example
+// Program 
+// |- Extern Decl
+// |  |- Extern Type=void Ident=add_x_y
+// |  |  |- Param Type=int Ident=x
+// |  |  |- Param Type=int Ident=y
+// |  |- Extern Type=bool Ident=not
+// |     |- Param Type=bool Ident=a
+// ...
+
 //===----------------------------------------------------------------------===//
 // AST nodes
 //===----------------------------------------------------------------------===//
 
-std::string LocalDecl::to_string() const {
-    auto out = std::string("LocalDecl[type=");
-    out += type.lexeme;
-    out += std::string(", ident=");
-    out += ident.lexeme;
-    out += std::string("]\n\t");
+// LocalDecl 
+Value* LocalDecl::codegen() {};
+std::string LocalDecl::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "LocalDecl type=\"" + type.lexeme + "\" ident=" + ident.lexeme + "\"\n"; 
+}
+
+
+Value* Block::codegen() {};
+std::string Block::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "Block\n";
+
+    for (int i = 0; i < local_decls.size(); i++) {
+        if (i == local_decls.size() - 1 && stmt_list.size() == 0) { // Last item and no stmts below it
+            out += local_decls.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += local_decls.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+        }
+    }
+
+    for (int i = 0; i < stmt_list.size(); i++) {
+        if (i == stmt_list.size() - 1) { // Last Item
+            out += stmt_list.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += stmt_list.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+        }
+    }
+
     return out;
 }
 
-// class LocalDecl: public ASTNode {
-//     TOKEN type;
-//     TOKEN ident;
-// public:
-//     LocalDecl(TOKEN type, TOKEN ident): type(type), ident(ident) {}
-    Value* LocalDecl::codegen() {};
-//     std::string to_string() const {
-//         auto out = std::string("LocalDecl[type=");
-//         out += type.lexeme;
-//         out += std::string(", ident=");
-//         out += ident.lexeme;
-//         out += std::string("]\n\t");
-//         return out;
-//     }
-// };
+Value* Param::codegen() {};
+std::string Param::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "Param type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
+}
 
-// class Block: public ASTNode {
-//     vector<unique_ptr<ASTNode>> local_decls;
-//     vector<unique_ptr<ASTNode>> stmt_list;
-// public:
-//     Block(vector<unique_ptr<ASTNode>> local_decls, vector<unique_ptr<ASTNode>> stmt_list): local_decls(std::move(local_decls)), stmt_list(std::move(stmt_list)) {}
-    Value* Block::codegen() {};
-    std::string Block::to_string() const {
-        auto out = std::string("Block[\n\tlocal_decls=");
-        for (auto &decl: local_decls) {
-            out += decl->to_string();
+Value* ExternDecl::codegen() {}
+std::string ExternDecl::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "Extern type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
+    for (int i = 0; i < params.size(); i++) {
+        if (i == params.size() - 1) { // Last Item
+            out += params.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += params.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
         }
-        out += std::string("stmt_list=");
-        for (auto &stmt : stmt_list) {
-            out += stmt->to_string();
-            out += std::string("\n\t");
+    }
+    return out;
+}
+
+Value* GlobalDecl::codegen() {}
+std::string GlobalDecl::to_string(std::string prefix, std::string children_prefix) const {
+
+    auto out = prefix + "GlobalDecl type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
+
+    if (block != nullptr) {
+        for (int i = 0; i < params.size(); i++) {
+            out += params.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
         }
-        out += std::string("]");
-        return out;
+        // Block would always be the last item
+        out += block->to_string(children_prefix + "└─ ", children_prefix + "   ");
     }
-// };
 
-// class Param: public ASTNode {
-//     TOKEN type;
-//     TOKEN ident;
-// public:
-//     Param(TOKEN type, TOKEN ident): type(type), ident(ident) {}
-    Value* Param::codegen() {};
-    std::string Param::to_string() const {
-        auto out = std::string("Param[type=");
-        out += type.lexeme;
-        out += std::string(", ident=");
-        out += ident.lexeme;
-        out += std::string("]");
-        return out;
-    }
-// };
+    return out;
+}
 
-// class ExternDecl: public ASTNode {
-//     TOKEN type;
-//     TOKEN ident;
-//     vector<unique_ptr<ASTNode>> params;
-// public:
-//     ExternDecl(TOKEN type, TOKEN ident, vector<unique_ptr<ASTNode>> params): type(type), ident(ident), params(std::move(params)) {}
-    Value* ExternDecl::codegen() {}
-    std::string ExternDecl::to_string() const {
-        auto out = std::string("Extern[type=");
-        out += type.lexeme;
-        out += std::string(", id=");
-        out += ident.lexeme;
-
-        out += std::string(", params=[");
-        for (auto &param : params) {
-            out += param->to_string();
-            out += std::string(" ");
+Value* Program::codegen() {};
+std::string Program::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "Program\n";
+    
+    for (int i = 0; i < extern_list.size(); i++) {
+        if (i == extern_list.size() - 1 && decl_list.size() == 0) { // Last item and no stmts below it
+            out += extern_list.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += extern_list.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
         }
-        out += std::string("]]\n\t");
-        return out;
     }
-// };
 
-// class GlobalDecl: public ASTNode {
-//     TOKEN type;
-//     TOKEN ident;
-//     // vvvv optional vvv
-//     vector<unique_ptr<ASTNode>> params;
-//     unique_ptr<ASTNode> block;
-// public:
-//     GlobalDecl(TOKEN type, TOKEN ident): type(type), ident(ident) {}
-//     GlobalDecl(TOKEN type, TOKEN ident, vector<unique_ptr<ASTNode>> params, unique_ptr<ASTNode> block): type(type), ident(ident), params(std::move(params)), block(std::move(block)) {}
-    Value* GlobalDecl::codegen() {}
-    std::string GlobalDecl::to_string() const {
-        auto out = std::string("GlobalDecl[type=");
-        out += type.lexeme;
-        out += std::string(", id=");
-        out += ident.lexeme;
-
-        if (block != nullptr) {
-            out += std::string(", params=[");
-            for (auto &param : params) {
-                out += param->to_string();
-                out += std::string(" ");
-            }
-            out += std::string("], block=");
-            out += block->to_string();
+    for (int i = 0; i < decl_list.size(); i++) {
+        if (i == decl_list.size() - 1) { // Last Item
+            out += decl_list.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += decl_list.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
         }
-        out += std::string("]\n\t");
-        return out;
     }
-// };
 
-// class Program: public ASTNode {
-//     vector<unique_ptr<ASTNode>> extern_list;
-//     vector<unique_ptr<ASTNode>> decl_list;
-// public:
-//     Program(vector<unique_ptr<ASTNode>> extern_list, vector<unique_ptr<ASTNode>> decl_list): extern_list(std::move(extern_list)), decl_list(std::move(decl_list)) {}
-    Value* Program::codegen() {};
-    std::string Program::to_string() const {
-        auto out = std::string("Program[\n\texterns=");
-        for (auto &ext : extern_list) {
-            out += ext->to_string();
+    return out;
+}
+
+Value* ReturnStmt::codegen() {}
+std::string ReturnStmt::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "Return\n";
+    if (expr != nullptr) {
+        out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
+    }
+
+    return out;
+}
+
+Value* IfStmt::codegen() {};
+std::string IfStmt::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "IfStmt\n";
+
+    out += expr->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+
+    if (else_block != nullptr) {
+        out += block->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+        out += else_block->to_string(children_prefix + "└─ ", children_prefix + "   ");
+    } else {
+        out += block->to_string(children_prefix + "└─ ", children_prefix + "   ");
+    }
+
+    return out;
+}
+
+Value* WhileStmt::codegen() {};
+std::string WhileStmt::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "WhileStmt\n";
+    out += expr->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+    out += block->to_string(children_prefix + "└─ ", children_prefix + "   ");
+
+    return out;
+}
+
+
+Value* AssignExpr::codegen() {};
+std::string AssignExpr::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "AssignExpr ident=\"" + ident.lexeme + "\"\n";
+    out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
+
+    return out;
+}
+
+Value* BinaryOp::codegen() {}
+std::string BinaryOp::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "BinaryOp op=\"" + op.lexeme + "\"\n";
+    out += lexpr->to_string(children_prefix + "├─ ", children_prefix + "│  ");
+    out += rexpr->to_string(children_prefix + "└─ ", children_prefix + "   ");
+    
+    return out;
+}
+
+Value* UnaryOp::codegen() {};
+std::string UnaryOp::to_string(std::string prefix, std::string children_prefix) const {
+    auto out = prefix + "Unary op=\"" + op.lexeme +  "\"\n";
+    out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
+
+    return out;
+}
+
+Value* IntLit::codegen() {}
+std::string IntLit::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "IntLit value=" + std::to_string(val) + "\n";
+}
+
+Value* FloatLit::codegen() {}
+std::string FloatLit::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "FloatLit value=" + std::to_string(val) + "\n";
+}
+
+Value* BoolLit::codegen() {}
+std::string BoolLit::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "BoolLit value=" + std::to_string(val) + "\n";
+}
+
+Value* VariableLit::codegen() {}
+std::string VariableLit::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "Variable ident=\"" + tok.lexeme + "\"\n";
+}
+
+Value* FunctionCallLiteral::codegen() {}
+std::string FunctionCallLiteral::to_string(std::string prefix, std::string children_prefix) const {
+
+    auto out = prefix + "FunctionCallLiteral ident=\"" + ident.lexeme + "\"\n";
+    for (int i = 0; i < args.size(); i++) {
+        if (i == args.size() - 1) { // Last Item
+            out += args.at(i)->to_string(children_prefix + "└─ ", children_prefix + "   ");
+        } else {
+            out += args.at(i)->to_string(children_prefix + "├─ ", children_prefix + "│  ");
         }
-        out += std::string("\n\tdecls=");
-        for (auto &decl : decl_list) {
-            out += decl->to_string();
-        }
-        out += std::string("]\n");
-        return out;
     }
-// };
 
-// class ReturnStmt: public ASTNode {
-//     unique_ptr<ASTNode> expr;
-// public:
-//     ReturnStmt(unique_ptr<ASTNode> expr): expr(std::move(expr)) {}
-    Value* ReturnStmt::codegen() {}
-    std::string ReturnStmt::to_string() const {
-        auto out = std::string("Return[");
-        if (expr != nullptr) {
-            out += expr->to_string();
-        }
-        out += std::string("]");
-        return out;
-    }
-// };
+    return out;
+}
 
-// class IfStmt: public ASTNode {
-//     unique_ptr<ASTNode> expr;
-//     unique_ptr<ASTNode> block;
-//     unique_ptr<ASTNode> else_block;
-// public:
-//     IfStmt(unique_ptr<ASTNode> expr, unique_ptr<ASTNode> block, unique_ptr<ASTNode> else_block): expr(std::move(expr)), block(std::move(block)), else_block(std::move(else_block)) {}
-    Value* IfStmt::codegen() {};
-    std::string IfStmt::to_string() const {
-        auto out = std::string("IfStmt[guard=");
-        
-        out += expr->to_string();
-        out += std::string(", block=");
-        out += block->to_string();
-        if (else_block) {
-            out += std::string(", else=");
-            out += else_block->to_string();   
-        }
-        out += std::string("]");
-        return out;
-    }
-// };
-
-// class WhileStmt: public ASTNode {
-//     unique_ptr<ASTNode> expr;
-//     unique_ptr<ASTNode> block;
-// public:
-//     WhileStmt(unique_ptr<ASTNode> expr, unique_ptr<ASTNode> block): expr(std::move(expr)), block(std::move(block)) {}
-    Value* WhileStmt::codegen() {};
-    std::string WhileStmt::to_string() const {
-        auto out = std::string("WhileStmt[guard=");
-        if (expr != nullptr) {        
-            out += expr->to_string();
-        }
-        out += std::string(", block=");
-        if (block != nullptr) {
-            out += block->to_string();
-        }
-        out += std::string("]");
-        return out;
-    }
-// };
-
-// class AssignExpr: public ASTNode {
-//     TOKEN ident;
-//     unique_ptr<ASTNode> expr;
-// public:
-//     AssignExpr(TOKEN ident, unique_ptr<ASTNode> expr): ident(ident), expr(std::move(expr)) {}
-    Value* AssignExpr::codegen() {};
-    std::string AssignExpr::to_string() const {
-        auto out = std::string("AssignExpr[id=");
-        out += ident.lexeme;
-        out += std::string(", expr=");
-        out += expr->to_string();
-        out += std::string("]");
-        return out;
-    }
-// };
-
-// class BinaryOp: public ASTNode {
-//     unique_ptr<ASTNode> lexpr;
-//     TOKEN op;
-//     unique_ptr<ASTNode> rexpr;
-// public:
-//     BinaryOp(unique_ptr<ASTNode> lexpr, TOKEN op, unique_ptr<ASTNode> rexpr): lexpr(std::move(lexpr)), op(op), rexpr(std::move(rexpr)) {}
-    Value* BinaryOp::codegen() {}
-    std::string BinaryOp::to_string() const {
-        auto out = std::string("BinaryOp[left=");
-        out += lexpr->to_string();
-        out += std::string(", op=");
-        out += op.lexeme;
-        out += std::string(", right=");
-        out += rexpr->to_string();
-        out += std::string("]");
-        return out;
-    }
-// };
-
-// class UnaryOp: public ASTNode {
-//     unique_ptr<ASTNode> expr;
-//     TOKEN op;
-// public:
-//     UnaryOp(TOKEN op, unique_ptr<ASTNode> expr): op(op), expr(std::move(expr)) {}
-    Value* UnaryOp::codegen() {};
-    std::string UnaryOp::to_string() const {
-        auto out = std::string("Unary[op=");
-        out += op.lexeme;
-        out += std::string(", expr=");
-        out += expr->to_string();
-        out += std::string("]");
-        return out;
-    }
-// };
-
-// /// IntASTnode - Class for integer literals like 1, 2, 10,
-// class IntLit : public ASTNode {
-//   int val;
-//   TOKEN tok;
-// public:
-//     IntLit(TOKEN tok, int val): val(val), tok(tok) {}
-    Value* IntLit::codegen() {}
-    std::string IntLit::to_string() const {
-        return std::string("IntLit[val=") + std::to_string(val) + std::string("]");
-    }
-// };
-
-// class FloatLit: public ASTNode {
-//     float val;
-//     TOKEN tok;
-// public:
-//     FloatLit(TOKEN tok, float val): tok(tok), val(val) {}
-    Value* FloatLit::codegen() {}
-    std::string FloatLit::to_string() const {
-        return std::string("FloatLit[val=") + std::to_string(val) + std::string("]");
-    }
-// };
-
-// class BoolLit: public ASTNode {
-//     bool val;
-//     TOKEN tok;
-// public:
-//     BoolLit(TOKEN tok, bool val): tok(tok), val(val) {}
-    Value* BoolLit::codegen() {}
-    std::string BoolLit::to_string() const {
-        return std::string("BoolLit[val=") + std::to_string(val) + std::string("]");
-    }
-// };
-
-// class VariableLit: public ASTNode {
-//     TOKEN tok;
-// public:
-//     VariableLit(TOKEN tok) : tok(tok) {}
-    Value* VariableLit::codegen() {}
-    std::string VariableLit::to_string() const {
-        return std::string("Variable[ident=") + tok.lexeme + std::string("]");
-    }
-// };
-
-// class FunctionCallLiteral: public ASTNode {
-//     TOKEN ident;
-//     vector<unique_ptr<ASTNode>> args;
-// public:
-//     FunctionCallLiteral(TOKEN ident, vector<unique_ptr<ASTNode>> args) : ident(ident), args(std::move(args)) {}
-    Value* FunctionCallLiteral::codegen() {}
-    std::string FunctionCallLiteral::to_string() const {
-        std::string out = std::string("FunctionCallLiteral[name=\"");
-        out += ident.lexeme;
-        out += std::string("\", args=[");
-        for (auto &arg : args) {
-            out += arg->to_string();
-            out += std::string(" ");
-        }
-        out += std::string("]]");
-        return out;
-    }
-// };
-
-// class Noop: public ASTNode {
-// public: 
-//     Noop() {}
-    Value* Noop::codegen() {}
-    std::string Noop::to_string() const {
-        return std::string("[noop]");
-    }
-// };
+Value* Noop::codegen() {}
+std::string Noop::to_string(std::string prefix, std::string children_prefix) const {
+    return prefix + "Empty AST Node\n";
+}

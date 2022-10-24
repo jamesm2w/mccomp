@@ -28,7 +28,7 @@ static std::unique_ptr<Module> TheModule;
 //===----------------------------------------------------------------------===//
 
 inline llvm::raw_ostream &operator << (llvm::raw_ostream &os, const ASTNode &ast) {
-  os << ast.to_string();
+  os << ast.to_string("", "");
   return os;
 }
 
@@ -69,8 +69,8 @@ int main(int argc, char **argv) {
   std::unique_ptr<Program> RootASTNode = parser();
   fprintf(stderr, "Parsing Finished\n");
 
-  fprintf(stderr, "%s\n", RootASTNode->to_string().c_str());
-  // llvm::outs() << RootASTNode << "\n";
+  // fprintf(stderr, "%s\n", RootASTNode->to_string().c_str());
+  llvm::outs() << *RootASTNode.get() << "\n";
 
   //********************* Start printing final IR **************************
   // Print out all of the generated code into a file called output.ll

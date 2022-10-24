@@ -9,9 +9,15 @@ using namespace std;
 /// ASTnode - Base class for all AST nodes.
 class ASTNode {
 public:
-  virtual ~ASTNode() {}
-  virtual llvm::Value *codegen() {};
-  virtual std::string to_string() const { return "[ASTNode]"; };
+    virtual ~ASTNode() {}
+    virtual llvm::Value *codegen() {};
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const { 
+        return prefix + "Generic ASTNode"; 
+    };
+
+    virtual std::string tree() {
+        return to_string("", "");
+    }
 };
 
 class LocalDecl: public ASTNode {
@@ -20,7 +26,7 @@ class LocalDecl: public ASTNode {
 public:
     LocalDecl(TOKEN type, TOKEN ident): type(type), ident(ident) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class Block: public ASTNode {
@@ -29,7 +35,7 @@ class Block: public ASTNode {
 public:
     Block(vector<unique_ptr<LocalDecl>> local_decls, vector<unique_ptr<ASTNode>> stmt_list): local_decls(std::move(local_decls)), stmt_list(std::move(stmt_list)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class Param: public ASTNode {
@@ -38,7 +44,7 @@ class Param: public ASTNode {
 public:
     Param(TOKEN type, TOKEN ident): type(type), ident(ident) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class ExternDecl: public ASTNode {
@@ -48,7 +54,7 @@ class ExternDecl: public ASTNode {
 public:
     ExternDecl(TOKEN type, TOKEN ident, vector<unique_ptr<Param>> params): type(type), ident(ident), params(std::move(params)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class GlobalDecl: public ASTNode {
@@ -61,7 +67,7 @@ public:
     GlobalDecl(TOKEN type, TOKEN ident): type(type), ident(ident) {}
     GlobalDecl(TOKEN type, TOKEN ident, vector<unique_ptr<Param>> params, unique_ptr<Block> block): type(type), ident(ident), params(std::move(params)), block(std::move(block)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class Program: public ASTNode {
@@ -70,7 +76,7 @@ class Program: public ASTNode {
 public:
     Program(vector<unique_ptr<ExternDecl>> extern_list, vector<unique_ptr<GlobalDecl>> decl_list): extern_list(std::move(extern_list)), decl_list(std::move(decl_list)) {}
     virtual Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class ReturnStmt: public ASTNode {
@@ -78,7 +84,7 @@ class ReturnStmt: public ASTNode {
 public:
     ReturnStmt(unique_ptr<ASTNode> expr): expr(std::move(expr)) {}
     virtual Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class IfStmt: public ASTNode {
@@ -88,7 +94,7 @@ class IfStmt: public ASTNode {
 public:
     IfStmt(unique_ptr<ASTNode> expr, unique_ptr<Block> block, unique_ptr<Block> else_block): expr(std::move(expr)), block(std::move(block)), else_block(std::move(else_block)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class WhileStmt: public ASTNode {
@@ -97,7 +103,7 @@ class WhileStmt: public ASTNode {
 public:
     WhileStmt(unique_ptr<ASTNode> expr, unique_ptr<ASTNode> block): expr(std::move(expr)), block(std::move(block)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class AssignExpr: public ASTNode {
@@ -106,7 +112,7 @@ class AssignExpr: public ASTNode {
 public:
     AssignExpr(TOKEN ident, unique_ptr<ASTNode> expr): ident(ident), expr(std::move(expr)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class BinaryOp: public ASTNode {
@@ -116,7 +122,7 @@ class BinaryOp: public ASTNode {
 public:
     BinaryOp(unique_ptr<ASTNode> lexpr, TOKEN op, unique_ptr<ASTNode> rexpr): lexpr(std::move(lexpr)), op(op), rexpr(std::move(rexpr)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class UnaryOp: public ASTNode {
@@ -125,7 +131,7 @@ class UnaryOp: public ASTNode {
 public:
     UnaryOp(TOKEN op, unique_ptr<ASTNode> expr): op(op), expr(std::move(expr)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class IntLit : public ASTNode {
@@ -134,7 +140,7 @@ class IntLit : public ASTNode {
 public:
     IntLit(TOKEN tok, int val): val(val), tok(tok) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class FloatLit: public ASTNode {
@@ -143,7 +149,7 @@ class FloatLit: public ASTNode {
 public:
     FloatLit(TOKEN tok, float val): tok(tok), val(val) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class BoolLit: public ASTNode {
@@ -152,7 +158,7 @@ class BoolLit: public ASTNode {
 public:
     BoolLit(TOKEN tok, bool val): tok(tok), val(val) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class VariableLit: public ASTNode {
@@ -160,7 +166,7 @@ class VariableLit: public ASTNode {
 public:
     VariableLit(TOKEN tok) : tok(tok) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class FunctionCallLiteral: public ASTNode {
@@ -169,12 +175,12 @@ class FunctionCallLiteral: public ASTNode {
 public:
     FunctionCallLiteral(TOKEN ident, vector<unique_ptr<ASTNode>> args) : ident(ident), args(std::move(args)) {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
 
 class Noop: public ASTNode {
 public: 
     Noop() {}
     Value *codegen() override;
-    std::string to_string() const override;
+    virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
