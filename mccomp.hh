@@ -131,7 +131,7 @@ static std::map<int, int> BinopPrecedence = {
   {LE, 50},
   {LT,  60},
   {GE, 70},
-  {GE,  80},
+  {GT,  80},
   {PLUS, 90},
   {MINUS, 100},
   {ASTERIX, 110},

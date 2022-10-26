@@ -407,7 +407,7 @@ int parse_stmt_list(std::vector<std::unique_ptr<ASTNode>> &list) {
         case WHILE:
         case SC:
         case LBRA: {
-            //DebugPrint("stmt found");
+            // DebugPrint("stmt found");
             auto stmt = parse_stmt();
             if (stmt == nullptr) {
                 return -1;
@@ -438,7 +438,7 @@ std::unique_ptr<ASTNode> parse_stmt() {
             //DebugPrint("if");
             return parse_if_stmt();
         case RETURN:   
-            //DebugPrint("return");
+            // DebugPrint("return");
             return parse_return_stmt();
         case SC:
         case BOOL_LIT:
@@ -448,7 +448,7 @@ std::unique_ptr<ASTNode> parse_stmt() {
         case LPAR:
         case NOT:
         case MINUS:
-            //DebugPrint("expr");
+            // DebugPrint("expr");
             return parse_expr_stmt();
         default:
             return ThrowError<ASTNode>("Expected start of statement");
@@ -460,7 +460,8 @@ std::unique_ptr<ASTNode> parse_stmt() {
 std::unique_ptr<ASTNode> parse_expr_stmt() {
     switch (CurTok.type) {
         case SC:
-            //DebugPrint("no expr");
+            // DebugPrint("no expr");
+            getNextToken(); // Eat semicolon
             return std::make_unique<Noop>();
         case BOOL_LIT:
         case FLOAT_LIT:
@@ -610,7 +611,7 @@ std::unique_ptr<ASTNode> parse_primary() {
             //DebugPrint("unary");
             TOKEN op = CurTok;
             getNextToken();
-            auto literal = parse_literal();
+            auto literal = parse_primary();
             if (literal == nullptr) {
                 return nullptr;
             }
@@ -633,25 +634,22 @@ std::unique_ptr<ASTNode> parse_literal() {
     std::unique_ptr<ASTNode> literal;
     switch (CurTok.type) {
         case BOOL_LIT:
-            //DebugPrint("bool");
-            //printf("PARSER: BoolValue %d\n", BoolVal);
+            // Literal bool value
             literal = std::make_unique<BoolLit>(CurTok, BoolVal);
             getNextToken();
             break;
         case FLOAT_LIT:
-            //DebugPrint("flaot");
-            //printf("PARSER: FloatValue %f\n", FloatVal);
+            // Floating point value
             literal = std::make_unique<FloatLit>(CurTok, FloatVal);
             getNextToken();
             break;
         case INT_LIT:
-            //DebugPrint("int");
-            //printf("PARSER: IntVal %d\n", IntVal);
+            // Integer literal value
             literal = std::make_unique<IntLit>(CurTok, IntVal);
             getNextToken();
             break;
         case LPAR:
-            //DebugPrint("nested expr");
+            // Bracketed Expression
             getNextToken();
             literal = parse_expr();
             if (literal == nullptr) {
@@ -660,13 +658,16 @@ std::unique_ptr<ASTNode> parse_literal() {
             if (!EatToken(RPAR)) {
                 return ThrowError<ASTNode>("Expected \")\" after nested expr");
             }
+            break;
         case IDENT: {
-            //DebugPrint("var or func call");
+            // Variable or Function Call
             TOKEN ident = CurTok;
+            // DebugPrint("Found ident!");
             getNextToken();
+            // DebugPrint("Found Ident, next tok is");
             switch (CurTok.type) {
                 case LPAR: {
-                    //DebugPrint("func call");
+                    // Must be a function call
                     getNextToken();
                     std::vector<std::unique_ptr<ASTNode>> arg_list;
                     if (parse_args(arg_list) < 0) {
@@ -692,7 +693,8 @@ std::unique_ptr<ASTNode> parse_literal() {
                 case EQ:
                 case AND:
                 case OR:
-                    //DebugPrint("variable");
+                case SC:
+                    // Just a variable
                     return std::make_unique<VariableLit>(ident);
                 default:
                     return ThrowError<ASTNode>("Expected \"(\" followed by arg list or operator and epxression");
