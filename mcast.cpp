@@ -19,13 +19,10 @@ using namespace std;
 //===----------------------------------------------------------------------===//
 
 // LocalDecl 
-Value* LocalDecl::codegen() {};
 std::string LocalDecl::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "LocalDecl type=\"" + type.lexeme + "\" ident=" + ident.lexeme + "\"\n"; 
 }
 
-
-Value* Block::codegen() {};
 std::string Block::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Block\n";
 
@@ -48,12 +45,10 @@ std::string Block::to_string(std::string prefix, std::string children_prefix) co
     return out;
 }
 
-Value* Param::codegen() {};
 std::string Param::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "Param type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
 }
 
-Value* ExternDecl::codegen() {}
 std::string ExternDecl::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Extern type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
     for (int i = 0; i < params.size(); i++) {
@@ -66,7 +61,6 @@ std::string ExternDecl::to_string(std::string prefix, std::string children_prefi
     return out;
 }
 
-Value* GlobalDecl::codegen() {}
 std::string GlobalDecl::to_string(std::string prefix, std::string children_prefix) const {
 
     auto out = prefix + "GlobalDecl type=\"" + type.lexeme + "\" ident=\"" + ident.lexeme + "\"\n";
@@ -82,7 +76,6 @@ std::string GlobalDecl::to_string(std::string prefix, std::string children_prefi
     return out;
 }
 
-Value* Program::codegen() {};
 std::string Program::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Program\n";
     
@@ -105,7 +98,6 @@ std::string Program::to_string(std::string prefix, std::string children_prefix) 
     return out;
 }
 
-Value* ReturnStmt::codegen() {}
 std::string ReturnStmt::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Return\n";
     if (expr != nullptr) {
@@ -115,7 +107,6 @@ std::string ReturnStmt::to_string(std::string prefix, std::string children_prefi
     return out;
 }
 
-Value* IfStmt::codegen() {};
 std::string IfStmt::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "IfStmt\n";
 
@@ -131,7 +122,6 @@ std::string IfStmt::to_string(std::string prefix, std::string children_prefix) c
     return out;
 }
 
-Value* WhileStmt::codegen() {};
 std::string WhileStmt::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "WhileStmt\n";
     out += expr->to_string(children_prefix + "├─ ", children_prefix + "│  ");
@@ -140,8 +130,6 @@ std::string WhileStmt::to_string(std::string prefix, std::string children_prefix
     return out;
 }
 
-
-Value* AssignExpr::codegen() {};
 std::string AssignExpr::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "AssignExpr ident=\"" + ident.lexeme + "\"\n";
     out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
@@ -149,7 +137,6 @@ std::string AssignExpr::to_string(std::string prefix, std::string children_prefi
     return out;
 }
 
-Value* BinaryOp::codegen() {}
 std::string BinaryOp::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "BinaryOp op=\"" + op.lexeme + "\"\n";
     out += lexpr->to_string(children_prefix + "├─ ", children_prefix + "│  ");
@@ -158,7 +145,6 @@ std::string BinaryOp::to_string(std::string prefix, std::string children_prefix)
     return out;
 }
 
-Value* UnaryOp::codegen() {};
 std::string UnaryOp::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Unary op=\"" + op.lexeme +  "\"\n";
     out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
@@ -166,27 +152,22 @@ std::string UnaryOp::to_string(std::string prefix, std::string children_prefix) 
     return out;
 }
 
-Value* IntLit::codegen() {}
 std::string IntLit::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "IntLit value=" + std::to_string(val) + "\n";
 }
 
-Value* FloatLit::codegen() {}
 std::string FloatLit::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "FloatLit value=" + std::to_string(val) + "\n";
 }
 
-Value* BoolLit::codegen() {}
 std::string BoolLit::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "BoolLit value=" + std::to_string(val) + "\n";
 }
 
-Value* VariableLit::codegen() {}
 std::string VariableLit::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "Variable ident=\"" + tok.lexeme + "\"\n";
 }
 
-Value* FunctionCallLiteral::codegen() {}
 std::string FunctionCallLiteral::to_string(std::string prefix, std::string children_prefix) const {
 
     auto out = prefix + "FunctionCallLiteral ident=\"" + ident.lexeme + "\"\n";
@@ -201,7 +182,6 @@ std::string FunctionCallLiteral::to_string(std::string prefix, std::string child
     return out;
 }
 
-Value* Noop::codegen() {}
 std::string Noop::to_string(std::string prefix, std::string children_prefix) const {
     return prefix + "Empty AST Node\n";
 }

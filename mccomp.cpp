@@ -16,9 +16,10 @@ int columnNo = 0;
 // Code Generation
 //===----------------------------------------------------------------------===//
 
-static LLVMContext TheContext;
-static IRBuilder<> Builder(TheContext);
-static std::unique_ptr<Module> TheModule;
+LLVMContext TheContext;
+IRBuilder<> Builder(TheContext);
+std::unique_ptr<Module> TheModule;
+std::map<std::string, Value*> NamedValues;
 
 //===----------------------------------------------------------------------===//
 // AST Printer  
@@ -63,11 +64,12 @@ int main(int argc, char **argv) {
 	// Run the parser now.
 	getNextToken();
 	std::unique_ptr<Program> RootASTNode = parser();
-	fprintf(stderr, "Parsing Finished\n");
 
 	if (RootASTNode == nullptr) {
 		fprintf(stderr, "Error in Parser\n");
 		return 1;
+	} else {
+		fprintf(stdout, "Parsing Finished\n");
 	}
 
 	llvm::outs() << *RootASTNode.get() << "\n";

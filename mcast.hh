@@ -10,7 +10,7 @@ using namespace std;
 class ASTNode {
 public:
     virtual ~ASTNode() {}
-    virtual llvm::Value *codegen() {};
+    virtual llvm::Value *codegen();
     virtual std::string to_string(std::string prefix, std::string children_prefix) const { 
         return prefix + "Generic ASTNode"; 
     };
