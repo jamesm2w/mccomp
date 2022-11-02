@@ -1,7 +1,7 @@
-CXX=clang++-15 -std=c++17
-CFLAGS= -g -O3 `llvm-config-15 --cppflags --system-libs --libs all` \
+CXX=clang++ -std=c++17
+CFLAGS= -g -O3 `llvm-config --cppflags --system-libs --libs all` \
 -Wno-unused-function -Wno-unknown-warning-option -fno-exceptions -fno-rtti
-LDFLAGS = -fuse-ld=lld `llvm-config-15 --cppflags --ldflags --system-libs --libs all`
+LDFLAGS = `llvm-config --cppflags --ldflags --system-libs --libs all`
 
 OBJDIR = ./build
 TARGET := mccomp
