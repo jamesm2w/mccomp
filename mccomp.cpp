@@ -19,7 +19,9 @@ int columnNo = 0;
 LLVMContext TheContext;
 IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
-std::map<std::string, Value*> NamedValues;
+
+std::map<std::string, llvm::AllocaInst* > NamedValues;
+std::map<std::string, llvm::Value* > GlobalNamedValues;
 
 //===----------------------------------------------------------------------===//
 // AST Printer  
