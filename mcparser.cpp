@@ -564,12 +564,17 @@ std::unique_ptr<ReturnStmt> parse_return_stmt() {
         return ThrowError<ReturnStmt>("Expected \"return\"");
     }
 
-    auto expr = parse_expr_stmt();
-    if (expr == nullptr) {
-        return nullptr;
-    }
+    if (CurTok.type == SC) {
+        EatToken(SC);
+        return std::make_unique<ReturnStmt>(std::nullopt);
+    } else {
+        auto expr = parse_expr_stmt();
+        if (expr == nullptr) {
+            return nullptr;
+        }
 
-    return std::make_unique<ReturnStmt>(std::move(expr));
+        return std::make_unique<ReturnStmt>(std::move(expr));
+    }
 }
 
 // Expr ::= IDENT = Expr

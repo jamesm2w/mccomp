@@ -43,6 +43,8 @@ class Param: public ASTNode {
     TOKEN ident;
 public:
     Param(TOKEN type, TOKEN ident): type(type), ident(ident) {}
+    TOKEN get_name() { return ident; }
+    TOKEN get_type() { return type; }
     Value *codegen() override;
     virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
@@ -80,9 +82,9 @@ public:
 };
 
 class ReturnStmt: public ASTNode {
-    unique_ptr<ASTNode> expr;
+    optional<unique_ptr<ASTNode>> expr;
 public:
-    ReturnStmt(unique_ptr<ASTNode> expr): expr(std::move(expr)) {}
+    ReturnStmt(optional<unique_ptr<ASTNode>> expr): expr(std::move(expr)) {}
     virtual Value *codegen() override;
     virtual std::string to_string(std::string prefix, std::string children_prefix) const override;
 };
