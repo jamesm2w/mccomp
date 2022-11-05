@@ -100,8 +100,8 @@ std::string Program::to_string(std::string prefix, std::string children_prefix) 
 
 std::string ReturnStmt::to_string(std::string prefix, std::string children_prefix) const {
     auto out = prefix + "Return\n";
-    if (expr != nullptr) {
-        out += expr->to_string(children_prefix + "└─ ", children_prefix + "   ");
+    if (expr != nullptr && expr.has_value()) {
+        out += expr->get()->to_string(children_prefix + "└─ ", children_prefix + "   ");
     }
 
     return out;

@@ -81,12 +81,14 @@ int main(int argc, char **argv) {
 	auto Filename = "output.ll";
 	std::error_code EC;
 	raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+	
+	RootASTNode->codegen();
 
 	if (EC) {
 		errs() << "Could not open file: " << EC.message();
 		return 1;
 	}
-	// TheModule->print(errs(), nullptr); // print IR to terminal
+	TheModule->print(errs(), nullptr); // print IR to terminal
 	TheModule->print(dest, nullptr);
 	//********************* End printing final IR ****************************
 

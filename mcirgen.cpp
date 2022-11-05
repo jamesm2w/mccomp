@@ -79,7 +79,7 @@ Value* VariableLit::codegen() {
 Value* FunctionCallLiteral::codegen() {
     Function* callee = TheModule->getFunction(ident.lexeme);
 
-    if (!callee) return ThrowValueError("Undefined function \"%s\"", ident.lexeme);
+    if (!callee) return ThrowValueError("Undefined function \"%s\"", ident.lexeme.c_str());
     if (callee->arg_size() != args.size()) return ThrowValueError("Length of function parameters and supplied arguments is different");
 
     std::vector<Value*> argsv;
@@ -144,7 +144,7 @@ Value* AssignExpr::codegen() {
     }
     AllocaInst* alloca = NamedValues[ident.lexeme];
     if (!alloca) {
-        return ThrowValueError("Undefined identity \"%s\"", ident.lexeme);
+        return ThrowValueError("Undefined identity \"%s\"", ident.lexeme.c_str());
     }
 
     return Builder.CreateStore(ex, alloca);
@@ -182,19 +182,19 @@ Value* prototype_codegen(TOKEN type, TOKEN ident, vector<unique_ptr<Param>>& par
     std::vector<Type*> param_list;
     for (auto &param : params) {
         Type* type = getType(param->get_type());
-        if (!type) return ThrowValueError("Invalid Type \"%s\"", param->get_type().lexeme);
+        if (!type) return ThrowValueError("Invalid Type \"%s\"", param->get_type().lexeme.c_str());
         param_list.push_back(type);
     }
 
     Type* return_type = getType(type);
-    if (!return_type) return ThrowValueError("Invalid Type \"%s\"", type.lexeme);
+    if (!return_type) return ThrowValueError("Invalid Type \"%s\"", type.lexeme.c_str());
 
     FunctionType* FT = FunctionType::get(return_type, param_list, false);
 
     Function* F = Function::Create(FT, Function::ExternalLinkage, ident.lexeme, TheModule.get());
 
     uint idx = 0;
-    for (auto &arg : F->args()) {
+    for (auto &arg : F->args()) { // TODO: Fix segfault here, too many params??
         arg.setName(params[idx++]->get_name().lexeme);
     }
 }
@@ -237,7 +237,7 @@ Value* GlobalDecl::codegen() {
     } else {
         // Global Variable Declaration
         if (GlobalNamedValues[ident.lexeme]) {
-            return ThrowValueError("Global Variable \"%s\" is already defined", ident.lexeme);
+            return ThrowValueError("Global Variable \"%s\" is already defined", ident.lexeme.c_str());
         }
         
         Type* typ = getType(type);
