@@ -39,6 +39,14 @@ bool isVoidType(Value* val) {
     return val->getType()->isVoidTy();
 }
 
+bool isPointerType(Value* val) {
+    return val->getType()->isPointerTy();
+}
+
+bool isOpaquePointerType(Value* val) {
+    return val->getType()->isOpaquePointerTy();
+}
+
 Type* getTokType(TOKEN tok) {
     switch (tok.type) {
         case BOOL_TOK:
@@ -197,6 +205,13 @@ std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs) {
     // what types would we be actually dealing with??
     fprintf(stderr, "Not sure how to coerce these two types, can someone help??\t");
     fprintf(stderr, "Left Type: id: %d\t", lhs->getType()->getTypeID());
+    fprintf(stderr, "%d", isIntegerType(lhs));
+    fprintf(stderr, "%d", isFloatingType(lhs));
+    fprintf(stderr, "%d", isBooleanType(lhs));
+    fprintf(stderr, "%d", isVoidType(lhs));
+    fprintf(stderr, "%d", isPointerType(lhs));
+    fprintf(stderr, "%d", isOpaquePointerType(lhs));
+    
     fprintf(stderr, "Right Type: id: %d\n", lhs->getType()->getTypeID());
     return std::pair(nullptr, nullptr);
 

@@ -19,9 +19,24 @@ Value* ThrowValueError( const std::string& format, Args... args ) {
     return nullptr;
 }
 
+// forces alloca to be declared in the function entry point
 AllocaInst* createEntryBlockAlloca(Function* TheFunction, Type* type, const std::string& varName) {
-    IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(type, 0, varName.c_str());
+    IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+    auto alloca = TmpBuilder.CreateAlloca(type, 0, varName.c_str());
+    Value* ex;
+    if (type->isIntegerTy(1)) {
+        ex = ConstantInt::get(getBooleanType(), APInt(1, 0, false));
+    } else if (type->isIntegerTy(32)) {
+        ex = ConstantInt::get(getIntegerType(), APInt(32, 0, true));
+    } else if (type->isFloatTy()) {
+        ex = ConstantFP::get(TheContext, APFloat(0.0));
+    } else {
+        ThrowValueError("Can't creat an initialiser for an alloca (unknown type)");
+        return nullptr;
+    }
+    TmpBuilder.CreateStore(ex, alloca);
+
+    return alloca;
 }
 
 Value* Noop::codegen() {
@@ -56,12 +71,13 @@ Value* VariableLit::codegen() {
         if (!GV) {
             return ThrowValueError("Unknown variable name \"%s\"", tok.lexeme.c_str()); 
         }
-        GlobalVariable* gvar = TheModule->getNamedGlobal(tok.lexeme);
-        return Builder.CreateLoad(gvar->getType(), gvar, "loadgvar");
+        GlobalVariable* gvar = (GlobalVariable *) GV; //TheModule->getNamedGlobal(tok.lexeme);
+        if (!gvar) return ThrowValueError("Couldn't find global variable \"%s\" in module table", tok.lexeme.c_str());
+        return Builder.CreateLoad(gvar->getValueType(), gvar, "loadgvar");
         // return Builder.CreateLoad(Type::getVoidTy(TheContext), GV, "loadgvar");
     }
     // TODO: Make this proper type
-    return Builder.CreateLoad(V->getType(), V, "loadvar");
+    return Builder.CreateLoad(V->getAllocatedType(), V, "loadvar");
 }
 
 Value* FunctionCallLiteral::codegen() {
@@ -194,12 +210,22 @@ Value* BinaryOp::codegen() {
 Value* AssignExpr::codegen() {
     printf("assign...\n");
     Value* ex = expr->codegen();
+    // TODO: typechecking on AssignExpr
     if (!ex) {
         return nullptr;
     }
+
     AllocaInst* alloca = NamedValues[ident.lexeme];
     if (!alloca) {
-        return ThrowValueError("Undefined identity \"%s\"", ident.lexeme.c_str());
+        
+        Value* GV = GlobalNamedValues[ident.lexeme];
+        if (!GV) {
+            return ThrowValueError("Unknown variable name \"%s\"", ident.lexeme.c_str()); 
+        }
+        // GlobalVariable* gvar = (GlobalVariable *) GV; //TheModule->getNamedGlobal(tok.lexeme);
+        // if (!gvar) return ThrowValueError("Couldn't find global variable \"%s\" in module table", ident.lexeme.c_str());
+        
+        return Builder.CreateStore(ex, GV);
     }
 
     return Builder.CreateStore(ex, alloca);
@@ -208,14 +234,17 @@ Value* AssignExpr::codegen() {
 Value* LocalDecl::codegen() {
     printf("local...\n");
     NamedValues[ident.lexeme] = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), getTokType(type), ident.lexeme);
+    if (!NamedValues[ident.lexeme]) return nullptr;
     return NamedValues[ident.lexeme];
 };
 
 Value* Block::codegen() {
     printf("block...\n");
     Function* TheFunction = Builder.GetInsertBlock()->getParent();
-    BasicBlock* block = BasicBlock::Create(TheContext, "block", TheFunction);
-    BasicBlock* end = BasicBlock::Create(TheContext, "end");
+    BasicBlock* block = BasicBlock::Create(TheContext, "block_block", TheFunction);
+    BasicBlock* end = BasicBlock::Create(TheContext, "end_block");
+    
+    Builder.CreateBr(block);
     Builder.SetInsertPoint(block);
 
     for (auto & decl : local_decls) {
@@ -225,9 +254,12 @@ Value* Block::codegen() {
         if (!stmt->codegen()) return nullptr;
     }
 
-    TheFunction->getBasicBlockList().push_back(end);
-    Builder.CreateBr(end);
-    Builder.SetInsertPoint(end);
+    return block;
+    // TheFunction->getBasicBlockList().push_back(end);
+    // Value* br = Builder.CreateBr(end);
+    // Builder.SetInsertPoint(end);
+
+    // return br;
 };
 
 // Only used syntactically. No need to generate code for the param.
@@ -278,13 +310,14 @@ Value* GlobalDecl::codegen() {
         
         if (!TheFunction) return nullptr;
 
-        BasicBlock* BB = BasicBlock::Create(TheContext, "func_entry", TheFunction);
+        BasicBlock* BB = BasicBlock::Create(TheContext, "entry", TheFunction);
         Builder.SetInsertPoint(BB);
 
         NamedValues.clear();
         for (auto &arg : TheFunction->args()) {
             printf("arg for arging %s\n", arg.getName());
             AllocaInst *alloca = createEntryBlockAlloca(TheFunction, arg.getType(), std::string(arg.getName()));
+            if (!alloca) return nullptr;
             Builder.CreateStore(&arg, alloca);
             NamedValues[std::string(arg.getName())] = alloca;
 
@@ -310,11 +343,23 @@ Value* GlobalDecl::codegen() {
         }
         
         Type* typ = getTokType(type);
-        GlobalVariable* glob = new GlobalVariable(typ, false, GlobalValue::CommonLinkage);
-
-        // Value* val = TheModule->getOrInsertGlobal(ident.lexeme.c_str(), typ);
+        GlobalVariable* glob = new GlobalVariable(typ, false, GlobalValue::ExternalLinkage);
         
+        if (typ->isIntegerTy(1)) {
+            glob->setInitializer(ConstantInt::get(getBooleanType(), APInt(1, 0, false)));
+        } else if (typ->isIntegerTy(32)) {
+            glob->setInitializer(ConstantInt::get(getIntegerType(), APInt(32, 0, false)));
+        } else if (typ->isFloatTy()) {
+            glob->setInitializer(ConstantFP::get(TheContext, APFloat(0.0)));
+        } else {
+            return ThrowValueError("Can't create initialiser for global variable type %s", type.lexeme.c_str());
+        }
+
+        TheModule->getGlobalList().push_back(glob);
+        
+        // Value* val = TheModule->getOrInsertGlobal(ident.lexeme.c_str(), typ);
         GlobalNamedValues[ident.lexeme] = glob;
+        printf("%s\n", GlobalNamedValues[ident.lexeme]);
         return glob;
     } 
 }
@@ -328,7 +373,7 @@ Value* Program::codegen() {
     for (auto & decl : decl_list) {
         if (!decl->codegen()) return nullptr;
     }
-    
+
     return Builder.GetInsertBlock();
 };
 
@@ -346,22 +391,24 @@ Value* ReturnStmt::codegen() {
 Value* IfStmt::codegen() {
     printf("ifstmt...\n");
     Function* TheFunction = Builder.GetInsertBlock()->getParent();
-    BasicBlock* true_ = BasicBlock::Create(TheContext, "branchtrue", TheFunction);
+    BasicBlock* true_ = BasicBlock::Create(TheContext, "true_branch", TheFunction);
     
     BasicBlock* end_;
     if (else_block)
-        end_ = BasicBlock::Create(TheContext, "branchelse");
+        end_ = BasicBlock::Create(TheContext, "else_branch");
     else 
-        end_ = BasicBlock::Create(TheContext, "branchend");
+        end_ = BasicBlock::Create(TheContext, "end_branch");
     
     Value* cond = expr->codegen();
-    if (!cond) {
-        return nullptr;
-    }
+    if (!cond) return nullptr;
 
-    Value* comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 1)), "ifcond");
+    cond = convertToBool(cond);
+    if (!cond) return nullptr;    
+
+    // Not Equal to 0 => True
+    Value* comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 0, false)), "cond_branch");
+
     Builder.CreateCondBr(comp, true_, end_);
-
     Builder.SetInsertPoint(true_);
 
     Value* true_block_v = block->codegen();
@@ -372,8 +419,8 @@ Value* IfStmt::codegen() {
         Value* else_block_v = else_block->codegen();
         if (!else_block_v) return nullptr;
 
-        TheFunction->getBasicBlockList().push_back(end_);
-        end_ = BasicBlock::Create(TheContext, "branchend");
+        TheFunction->getBasicBlockList().push_back(end_); // push back the else block
+        end_ = BasicBlock::Create(TheContext, "end_branch"); // create the end-of-branch block
     }
 
     TheFunction->getBasicBlockList().push_back(end_);
@@ -391,10 +438,12 @@ Value* WhileStmt::codegen() {
     BasicBlock* end_ = BasicBlock::Create(TheContext, "loop_end");
 
     // cond_check block calculates the condition and then conditional branches to the code block or exits
+    Builder.CreateBr(cond_check);
     Builder.SetInsertPoint(cond_check);
     Value* cond = expr->codegen();
     if (!cond) return nullptr;
-    Value* comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1,1)), "loop_cond");
+    // Not equal to 0 => True
+    Value* comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 0, false)), "loop_cond");
     Builder.CreateCondBr(comp, block_, end_);
 
     // Code block executes the body of the while loop
