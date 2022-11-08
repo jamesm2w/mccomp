@@ -157,6 +157,9 @@ static std::deque<TOKEN> tok_buffer;
 
 #include "mcast.hh"
 
+#include "mctypes.hh"
+
+
 std::unique_ptr<Program> parser();
 
 int parse_extern_list(std::vector<std::unique_ptr<ExternDecl>> &list);

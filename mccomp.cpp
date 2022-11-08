@@ -82,7 +82,10 @@ int main(int argc, char **argv) {
 	std::error_code EC;
 	raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
 	
-	RootASTNode->codegen();
+	if (!RootASTNode->codegen()) {
+		fprintf(stderr, "Error in code generation\n");
+		return 1;
+	}
 
 	if (EC) {
 		errs() << "Could not open file: " << EC.message();

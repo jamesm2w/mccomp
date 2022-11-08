@@ -10,14 +10,10 @@ using namespace std;
 class ASTNode {
 public:
     virtual ~ASTNode() {}
-    virtual llvm::Value *codegen();
+    virtual llvm::Value *codegen() = 0;
     virtual std::string to_string(std::string prefix, std::string children_prefix) const { 
         return prefix + "Generic ASTNode"; 
     };
-
-    virtual std::string tree() {
-        return to_string("", "");
-    }
 };
 
 class LocalDecl: public ASTNode {
@@ -62,7 +58,7 @@ public:
 class GlobalDecl: public ASTNode {
     TOKEN type;
     TOKEN ident;
-    // vvvv optional vvv
+    // vvvv optional vvvv
     vector<unique_ptr<Param>> params;
     unique_ptr<Block> block;
 public:
