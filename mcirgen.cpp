@@ -44,7 +44,7 @@ Value* Noop::codegen() {
 }
 
 Value* BoolLit::codegen() {
-    printf("bool... %d\n", val);
+    printf("Boolean Literal... %d\n", val);
     if (val) {
         return ConstantInt::get(TheContext, APInt(1, 1, false));
     } else {
@@ -53,35 +53,34 @@ Value* BoolLit::codegen() {
 }
 
 Value* FloatLit::codegen() {
-    printf("floatlit... %f\n", val);
+    printf("Floating Point Literal... %f\n", val);
     return ConstantFP::get(TheContext, APFloat(val));
 }
 
 Value* IntLit::codegen() {
-    printf("intlit... %d\n", val);
+    printf("Integer Literal... %d\n", val);
     return ConstantInt::get(TheContext, APInt(32, val, true));
 }
 
 Value* VariableLit::codegen() {
-    printf("vardef...\n");
+    printf("Generating variable literal... ");
+    
     AllocaInst *V = NamedValues[tok.lexeme];
     if (!V) {
-
-        Value* GV = GlobalNamedValues[tok.lexeme];
+        GlobalVariable* GV = (GlobalVariable*) GlobalNamedValues[tok.lexeme];
         if (!GV) {
-            return ThrowValueError("Unknown variable name \"%s\"", tok.lexeme.c_str()); 
+            return ThrowValueError("Couldn't find global variable with name \"%s\". Line %d Column %d.", tok.lexeme.c_str(), tok.lineNo, tok.columnNo); 
         }
-        GlobalVariable* gvar = (GlobalVariable *) GV; //TheModule->getNamedGlobal(tok.lexeme);
-        if (!gvar) return ThrowValueError("Couldn't find global variable \"%s\" in module table", tok.lexeme.c_str());
-        return Builder.CreateLoad(gvar->getValueType(), gvar, "loadgvar");
-        // return Builder.CreateLoad(Type::getVoidTy(TheContext), GV, "loadgvar");
+        printf("Global Value Type %d\n", GV->getValueType()->getTypeID());
+        return Builder.CreateLoad(GV->getValueType(), GV, "load_gvar");
     }
-    // TODO: Make this proper type
-    return Builder.CreateLoad(V->getAllocatedType(), V, "loadvar");
+
+    printf("Value Type %d\n", V->getAllocatedType()->getTypeID());    
+    return Builder.CreateLoad(V->getAllocatedType(), V, "load_lvar");
 }
 
 Value* FunctionCallLiteral::codegen() {
-    printf("funccall...\n");
+    printf("Function Call Literal...\n");
     Function* callee = TheModule->getFunction(ident.lexeme);
 
     if (!callee) return ThrowValueError("Undefined function \"%s\"", ident.lexeme.c_str());
@@ -126,6 +125,7 @@ Value* BinaryOp::codegen() {
     printf("binary...\n");
     Function* TheFunction = Builder.GetInsertBlock()->getParent();
     Value* left = lexpr->codegen();
+    printf("op is %s\n", op.lexeme.c_str());
     Value* right = rexpr->codegen();
     if (!left || !right) return nullptr;
 
@@ -238,10 +238,10 @@ Value* LocalDecl::codegen() {
     return NamedValues[ident.lexeme];
 };
 
-Value* Block::codegen() {
+Value* Block::codegen() { // TODO: Scoping for blocks
     printf("block...\n");
     Function* TheFunction = Builder.GetInsertBlock()->getParent();
-    BasicBlock* block = BasicBlock::Create(TheContext, "block_block", TheFunction);
+    BasicBlock* block = BasicBlock::Create(TheContext, "start_block", TheFunction);
     BasicBlock* end = BasicBlock::Create(TheContext, "end_block");
     
     Builder.CreateBr(block);
@@ -250,15 +250,17 @@ Value* Block::codegen() {
     for (auto & decl : local_decls) {
         if (!decl->codegen()) return nullptr;
     }
+
     for (auto & stmt : stmt_list) {
         if (!stmt->codegen()) return nullptr;
     }
 
+    // return block;
+    // TODO: handle end of blocks
+    TheFunction->getBasicBlockList().push_back(end);
+    Value* br = Builder.CreateBr(end);
+    Builder.SetInsertPoint(end);
     return block;
-    // TheFunction->getBasicBlockList().push_back(end);
-    // Value* br = Builder.CreateBr(end);
-    // Builder.SetInsertPoint(end);
-
     // return br;
 };
 
@@ -329,6 +331,9 @@ Value* GlobalDecl::codegen() {
             TheFunction->eraseFromParent();
             return nullptr;
         }
+
+        // just create a default return at the end of the function
+        Builder.CreateRet(getDefaultValue(TheFunction->getReturnType()));
 
         printf("verifying...\n");
         // Apparently should create a ret here but that should be managed by the code?
@@ -415,17 +420,21 @@ Value* IfStmt::codegen() {
     if (!true_block_v) return nullptr;
 
     if (else_block) {
+        BasicBlock* end__ = BasicBlock::Create(TheContext, "end_branch"); // create the end-of-branch block
+        Builder.CreateBr(end__); // jump from true block to end block
+
+        TheFunction->getBasicBlockList().push_back(end_);
         Builder.SetInsertPoint(end_);
         Value* else_block_v = else_block->codegen();
         if (!else_block_v) return nullptr;
 
-        TheFunction->getBasicBlockList().push_back(end_); // push back the else block
-        end_ = BasicBlock::Create(TheContext, "end_branch"); // create the end-of-branch block
+        // TheFunction->getBasicBlockList().push_back(end_); // push back the else block
+        end_ = end__; // set the end block to the end of the else stmt block
     }
 
-    TheFunction->getBasicBlockList().push_back(end_);
-    Builder.CreateBr(end_);
-    Builder.SetInsertPoint(end_);
+    TheFunction->getBasicBlockList().push_back(end_); // add the end block to the program
+    Builder.CreateBr(end_); // put a branch from the last block (else block if else or true block if no else) to the end
+    Builder.SetInsertPoint(end_); // write code in this block going forwards
 
     return cond;
 };

@@ -19,4 +19,6 @@ Type* getTokType(TOKEN tok);
 
 Value* convertToBool(Value* value);
 
+Value* getDefaultValue(Type* typ);
+
 std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs);

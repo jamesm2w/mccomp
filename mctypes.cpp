@@ -121,6 +121,18 @@ Value* boolToFloat(Value* bval) {
     return Builder.CreateUIToFP(bval, getFloatingType(), "bool_float_conv");
 }
 
+Value* getDefaultValue(Type* typ) {
+if (typ->isIntegerTy(1)) {
+        return ConstantInt::get(getBooleanType(), APInt(1, 0, false));
+    } else if (typ->isIntegerTy(32)) {
+        return ConstantInt::get(getIntegerType(), APInt(32, 0, false));
+    } else if (typ->isFloatTy()) {
+        return ConstantFP::get(TheContext, APFloat(0.0));
+    } else {
+        return nullptr;
+    }
+}
+
 // General Conversion Table: if lhs, rhs then convert both to : 
 //lhs\rhs bool   int   float
 //   bool bool   int   float
