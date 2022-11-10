@@ -3,3 +3,4 @@ build/
 mccomp
 output.ll
 Makefile
+tests/

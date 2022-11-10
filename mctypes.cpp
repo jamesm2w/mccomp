@@ -121,13 +121,13 @@ Value* boolToFloat(Value* bval) {
     return Builder.CreateUIToFP(bval, getFloatingType(), "bool_float_conv");
 }
 
-Value* getDefaultValue(Type* typ) {
+Constant* getDefaultValue(Type* typ) {
 if (typ->isIntegerTy(1)) {
         return ConstantInt::get(getBooleanType(), APInt(1, 0, false));
     } else if (typ->isIntegerTy(32)) {
         return ConstantInt::get(getIntegerType(), APInt(32, 0, false));
     } else if (typ->isFloatTy()) {
-        return ConstantFP::get(TheContext, APFloat(0.0));
+        return ConstantFP::get(TheContext, APFloat((float)0.0));
     } else {
         return nullptr;
     }

@@ -1,19 +1,39 @@
-extern int add_x_y(int x, int y);
-extern int print_int(int X);
-extern float print_float(float X);
+// MiniC program to compute the value of pi
+extern void print_float(float x);
 
-float glob;
+extern void print_int(int x);
 
-int test (int a, int b) {
+float pi() {
 
-  print_int(a);
+  bool flag;
+  float PI;
+  int i;
 
-  {
-    a = a + 1;
-    b = b - 1;
+  flag = true;
+  PI = 3.0;
+  i = 2;
+
+  print_float(PI);
+  print_int(flag);
+  print_int(i);
+
+  while(i < 100) {
+    
+    if(flag) {
+      PI = PI + (4.0 / (i*(i+1)*(i+2)));
+      //flag = false;
+    }
+    else {
+      PI = PI - (4.0 / (i*(i+1)*(i+2)));
+      //flag = true;
+    }
+    flag = !flag;
+    i = i+2;
+
+    print_float(PI);
+    print_int(flag);
+   print_int(i);
   }
 
-  print_int(b);
-
-  return 10;
+  return PI;
 }

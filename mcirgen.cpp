@@ -23,17 +23,21 @@ Value* ThrowValueError( const std::string& format, Args... args ) {
 AllocaInst* createEntryBlockAlloca(Function* TheFunction, Type* type, const std::string& varName) {
     IRBuilder<> TmpBuilder(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
     auto alloca = TmpBuilder.CreateAlloca(type, 0, varName.c_str());
-    Value* ex;
-    if (type->isIntegerTy(1)) {
-        ex = ConstantInt::get(getBooleanType(), APInt(1, 0, false));
-    } else if (type->isIntegerTy(32)) {
-        ex = ConstantInt::get(getIntegerType(), APInt(32, 0, true));
-    } else if (type->isFloatTy()) {
-        ex = ConstantFP::get(TheContext, APFloat(0.0));
-    } else {
-        ThrowValueError("Can't creat an initialiser for an alloca (unknown type)");
-        return nullptr;
-    }
+    
+    Value* ex = getDefaultValue(type);
+    if (!ex) return nullptr;
+
+    // Value* ex;
+    // if (type->isIntegerTy(1)) {
+    //     ex = ConstantInt::get(getBooleanType(), APInt(1, 0, false));
+    // } else if (type->isIntegerTy(32)) {
+    //     ex = ConstantInt::get(getIntegerType(), APInt(32, 0, true));
+    // } else if (type->isFloatTy()) {
+    //     ex = ConstantFP::get(TheContext, APFloat((float)0.0));
+    // } else {
+    //     ThrowValueError("Can't creat an initialiser for an alloca (unknown type)");
+    //     return nullptr;
+    // }
     TmpBuilder.CreateStore(ex, alloca);
 
     return alloca;
@@ -54,7 +58,7 @@ Value* BoolLit::codegen() {
 
 Value* FloatLit::codegen() {
     printf("Floating Point Literal... %f\n", val);
-    return ConstantFP::get(TheContext, APFloat(val));
+    return ConstantFP::get(TheContext, APFloat((float)val));
 }
 
 Value* IntLit::codegen() {
@@ -93,6 +97,9 @@ Value* FunctionCallLiteral::codegen() {
         if (!argsv.back()) return nullptr;
     }
 
+    if (callee->getReturnType()->isVoidTy()) {
+        return Builder.CreateCall(callee, argsv);        
+    }
     return Builder.CreateCall(callee, argsv, "call_func");
 }
 
@@ -115,7 +122,8 @@ Value* UnaryOp::codegen() {
         case NOT:
             operand = convertToBool(operand);
             if (!operand) return nullptr;
-            return Builder.CreateNeg(operand, "bool_unary_not");
+            return Builder.CreateNot(operand, "unary_not");
+            // return Builder.CreateNeg(operand, "bool_unary_not");
         default:
             return ThrowValueError("Invalid Unary Operator \"%s\" expected \"!\", \"-\"", op.lexeme.c_str());
     }
@@ -333,6 +341,7 @@ Value* GlobalDecl::codegen() {
         }
 
         // just create a default return at the end of the function
+        printf("function return type id %d", TheFunction->getReturnType()->getTypeID());
         Builder.CreateRet(getDefaultValue(TheFunction->getReturnType()));
 
         printf("verifying...\n");
@@ -349,16 +358,10 @@ Value* GlobalDecl::codegen() {
         
         Type* typ = getTokType(type);
         GlobalVariable* glob = new GlobalVariable(typ, false, GlobalValue::ExternalLinkage);
-        
-        if (typ->isIntegerTy(1)) {
-            glob->setInitializer(ConstantInt::get(getBooleanType(), APInt(1, 0, false)));
-        } else if (typ->isIntegerTy(32)) {
-            glob->setInitializer(ConstantInt::get(getIntegerType(), APInt(32, 0, false)));
-        } else if (typ->isFloatTy()) {
-            glob->setInitializer(ConstantFP::get(TheContext, APFloat(0.0)));
-        } else {
-            return ThrowValueError("Can't create initialiser for global variable type %s", type.lexeme.c_str());
-        }
+        Constant* defaultInit = getDefaultValue(typ);
+
+        if (!defaultInit) return nullptr;
+        glob->setInitializer(defaultInit);
 
         TheModule->getGlobalList().push_back(glob);
         
