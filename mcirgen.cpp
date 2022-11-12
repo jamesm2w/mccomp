@@ -111,7 +111,17 @@ Value *FunctionCallLiteral::codegen() {
     std::vector<Value *> argsv;
     for (uint i = 0, e = args.size(); i != e; ++i) {
         // TODO: Type Checking on Arguments to Functions
-        argsv.push_back(args[i]->codegen());
+		Value* argv = args[i]->codegen();
+		if (callee->getArg(i)->getType()->isIntegerTy(1)) {
+			argv = convertToBool(argv);
+		} else if (callee->getArg(i)->getType()->isIntegerTy(32)) {
+			argv = convertToInteger(argv);
+		} else if (callee->getArg(i)->getType()->isFloatTy()) {
+			argv = convertToFloat(argv);
+		}
+		if (!argv) return nullptr;
+
+        argsv.push_back(argv);
         if (!argsv.back())
             return nullptr;
     }
@@ -376,7 +386,7 @@ Value *Block::codegen() {
 
     // Create new scope
     Scope prev_scope_ptr = scope_ptr;
-    scope_ptr = Scope(prev_scope_ptr);
+    scope_ptr = new Scope(scope_ptr);
 
     for (auto &decl : local_decls) {
         if (!decl->codegen())
@@ -456,7 +466,7 @@ Value *GlobalDecl::codegen() {
 
         // Create the function scope (params, etc) a new inner scope is created for the block
         Scope prev_scope_ptr = scope_ptr;
-        scope_ptr = Scope(prev_scope_ptr);
+        scope_ptr = new Scope(prev_scope_ptr);
 
         // Loop through each arg and create the allocas for them. Then put them in the scope symbol table
         for (auto &arg : TheFunction->args()) {

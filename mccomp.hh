@@ -60,8 +60,12 @@ class Scope
 	Scope *super;
 
 public:
-	Scope() {}
-	Scope(Scope *super) : super(super) {}
+	Scope() {
+		values = std::map<std::string, llvm::AllocaInst*>();
+	}
+	Scope(Scope *super) : super(super) {
+		values = std::map<std::string, llvm::AllocaInst*>();
+	}
 	llvm::AllocaInst *searchForValue(std::string string);
 	bool insertValue(std::string name, llvm::AllocaInst *val);
 	Scope createSubScope();

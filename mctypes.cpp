@@ -55,7 +55,7 @@ Type* getTokType(TOKEN tok) {
         case VOID_TOK:
             return getVoidType();
         default:
-            fprintf(stderr, "Codegen Error On Line %d Column %d: Invalid type \"%s\" expected bool, float, int void", tok.lineNo, tok.columnNo, tok.lexeme.c_str());
+            fprintf(stderr, "Codegen Error On Line %d Column %d: Invalid type \"%s\" expected bool, float, int void\n", tok.lineNo, tok.columnNo, tok.lexeme.c_str());
             return nullptr;
     }
 }
@@ -80,7 +80,45 @@ Value* convertToBool(Value* value, int lineNo, int columnNo) {
         // return Builder.CreateICmpNE(value, ConstantInt::get(TheContext, APInt(32, 0, true)), "int_bool_conv");
     }
 
-    fprintf(stderr, "Codegen Error On Line %d Column %d: Couldn't coerce type \"%d\" to boolean", lineNo, columnNo, value->getType()->getTypeID());
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Couldn't coerce type \"%d\" to boolean\n", lineNo, columnNo, value->getType()->getTypeID());
+    return nullptr;
+}
+
+Value* convertToInteger(Value* value, int lineNo, int columnNo) {
+    if (!value) return nullptr;
+
+    if (isBooleanType(value)) {
+        return boolToInteger(value);
+    }
+
+    if (isIntegerType(value)) {
+        return value;
+    }
+
+    if (isFloatingType(value)) {
+        return floatToInteger(value, lineNo, columnNo);
+    }
+
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Couldn't coerce type \"%d\" to integer\n", lineNo, columnNo, value->getType()->getTypeID());
+    return nullptr;
+}
+
+Value* convertToFloat(Value* value, int lineNo, int columnNo) {
+    if (!value) return nullptr;
+
+    if (isBooleanType(value)) {
+        return boolToFloat(value);
+    }
+
+    if (isIntegerType(value)) {
+        return integerToFloat(value);
+    }
+
+    if (isFloatingType(value)) {
+        return value;
+    }
+
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Couldn't coerce type \"%d\" to float\n", lineNo, columnNo, value->getType()->getTypeID());
     return nullptr;
 }
 
@@ -91,19 +129,19 @@ Value* integerToFloat(Value* ival) {
 
 // Convert an integer to a boolean (Narrowing Conversion)
 Value* integerToBool(Value* ival, int lineNo, int columnNo) {
-    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from integer to boolean", lineNo, columnNo);    
+    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from integer to boolean\n", lineNo, columnNo);    
     return Builder.CreateICmpNE(ival, ConstantInt::get(TheContext, APInt(32, 0, true)), "int_bool_conv");
 }
 
 // Convert a float down to an integer (Narrowing Conversion)
 Value* floatToInteger(Value* fval, int lineNo, int columnNo) {
-    fprintf(stderr, "Codegen Error On Line %d Column %d: Implicit conversion from float to integer", lineNo, columnNo);
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Implicit conversion from float to integer\n", lineNo, columnNo);
     return Builder.CreateFPToSI(fval, getIntegerType(), "float_int_conv");
 }
 
 // Convert a float to a boolean value (Narrowing Conversion)
 Value* floatToBool(Value* fval, int lineNo, int columnNo) {
-    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from float to boolean", lineNo, columnNo);
+    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from float to boolean\n", lineNo, columnNo);
     return Builder.CreateFCmpONE(fval, ConstantFP::get(TheContext, APFloat(0.0)), "float_bool_conv");
 }
 
@@ -149,7 +187,7 @@ Constant* getDefaultValue(Type* typ) {
 // performs necessary conversions s.t. lhs, and rhs are the same types (the wider of the two)
 std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs) {
     if (!lhs || !rhs) return std::pair(nullptr, nullptr);
-    
+
     if (isFloatingType(lhs)) {
         if (isFloatingType(rhs)) {
             return std::pair(lhs, rhs);

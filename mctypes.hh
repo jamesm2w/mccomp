@@ -18,6 +18,8 @@ bool isVoidType(Value* val);
 Type* getTokType(TOKEN tok);
 
 Value* convertToBool(Value* value, int lineNo = -1, int columnNo = -1);
+Value* convertToInteger(Value* value, int lineNo = -1, int columnNo = -1);
+Value* convertToFloat(Value* value, int lineNo = -1, int columnNo = -1);
 
 Constant* getDefaultValue(Type* typ);
 
