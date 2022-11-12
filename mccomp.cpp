@@ -21,6 +21,7 @@ IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
 
 std::map<std::string, llvm::AllocaInst* > NamedValues;
+std::map<std::string, llvm::AllocaInst* >* outerNamedValues = nullptr;
 std::map<std::string, llvm::Value* > GlobalNamedValues;
 
 //===----------------------------------------------------------------------===//
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
 		errs() << "Could not open file: " << EC.message();
 		return 1;
 	}
-	TheModule->print(errs(), nullptr); // print IR to terminal
+	// TheModule->print(errs(), nullptr); // print IR to terminal
 	TheModule->print(dest, nullptr);
 	//********************* End printing final IR ****************************
 

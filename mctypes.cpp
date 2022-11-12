@@ -8,6 +8,7 @@ Type* getIntegerType() {
     return Type::getInt32Ty(TheContext);
 }
 
+// Is the type integer
 bool isIntegerType(Value* val) {
     return val->getType()->isIntegerTy(32);
 } 
@@ -17,6 +18,7 @@ Type* getBooleanType() {
     return Type::getInt1Ty(TheContext);
 }
 
+// Is the type a boolean
 bool isBooleanType(Value* val) {
     return val->getType()->isIntegerTy(1);
 }
@@ -26,6 +28,7 @@ Type* getFloatingType() {
     return Type::getFloatTy(TheContext);
 }
 
+// Is the type single floating point (float)
 bool isFloatingType(Value* val) {
     return val->getType()->isFloatTy();
 }
@@ -35,18 +38,12 @@ Type* getVoidType() {
     return Type::getVoidTy(TheContext);
 }
 
+// Is the type void
 bool isVoidType(Value* val) {
     return val->getType()->isVoidTy();
 }
 
-bool isPointerType(Value* val) {
-    return val->getType()->isPointerTy();
-}
-
-bool isOpaquePointerType(Value* val) {
-    return val->getType()->isOpaquePointerTy();
-}
-
+// Get the type for the token type
 Type* getTokType(TOKEN tok) {
     switch (tok.type) {
         case BOOL_TOK:
@@ -58,71 +55,71 @@ Type* getTokType(TOKEN tok) {
         case VOID_TOK:
             return getVoidType();
         default:
-            fprintf(stderr, "Invalid type \"%s\" expected bool, float, int void", tok.lexeme.c_str());
+            fprintf(stderr, "Codegen Error On Line %d Column %d: Invalid type \"%s\" expected bool, float, int void", tok.lineNo, tok.columnNo, tok.lexeme.c_str());
             return nullptr;
     }
 }
 
-Value* convertToBool(Value* value) {
+// Convert the type into a boolean value
+Value* convertToBool(Value* value, int lineNo, int columnNo) {
+    if (!value) return nullptr;
+
     if (isBooleanType(value)) {
         return value;
     }
 
     if (isFloatingType(value)) {
-        return Builder.CreateFCmpUNE(value, ConstantFP::get(TheContext, APFloat(0.0)), "float_bool_conv");
+        return floatToBool(value);
+        // fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from float to boolean", lineNo, columnNo);
+        // return Builder.CreateFCmpUNE(value, ConstantFP::get(TheContext, APFloat(0.0)), "float_bool_conv");
     }
 
     if (isIntegerType(value)) {
-        return Builder.CreateICmpNE(value, ConstantInt::get(TheContext, APInt(32, 0, true)), "int_bool_conv");
+        return integerToBool(value);
+        // fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from integer to boolean", lineNo, columnNo);
+        // return Builder.CreateICmpNE(value, ConstantInt::get(TheContext, APInt(32, 0, true)), "int_bool_conv");
     }
 
-    fprintf(stderr, "Couldn't coerce type \"%d\" to boolean", value->getType()->getTypeID());
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Couldn't coerce type \"%d\" to boolean", lineNo, columnNo, value->getType()->getTypeID());
     return nullptr;
-    // if (value->getType()->isFloatTy()) {
-    //     // If value != 0 then it's truthy else false
-    //     printf("Implicit coercion of floating point value to boolean");
-    //     return Builder.CreateFCmpUNE(value, ConstantFP::get(TheContext, APFloat(0.0)), "float_bool_conv");
-    // } else if (value->getType()->isIntegerTy()) {
-    //     if (value->getType()->getIntegerBitWidth() == 1) {
-    //         return value;
-    //     } else {
-    //         // If val != 0 then value is true (1) else false (0)
-    //         printf("Implicit coercion of integer value to boolean");
-    //         return Builder.CreateICmpNE(value, ConstantInt::get(TheContext, APInt(value->getType()->getIntegerBitWidth(), 0, false)), "int_bool_conversion");
-    //     }
-    // } else {
-    //     return ThrowValueError("Couldn't coerce type of value \"%s\" into \"bool\"", value->getType());
-    // }
 }
 
+// Convert an integer to float (Widening conversion)
 Value* integerToFloat(Value* ival) {
     return Builder.CreateSIToFP(ival, getFloatingType(), "int_float_conv");
 }
 
-// TODO: using cmp here might not actually return a 1-bit int value!!
-Value* integerToBool(Value* ival) {
+// Convert an integer to a boolean (Narrowing Conversion)
+Value* integerToBool(Value* ival, int lineNo, int columnNo) {
+    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from integer to boolean", lineNo, columnNo);    
     return Builder.CreateICmpNE(ival, ConstantInt::get(TheContext, APInt(32, 0, true)), "int_bool_conv");
 }
 
-Value* floatToInteger(Value* fval) {
+// Convert a float down to an integer (Narrowing Conversion)
+Value* floatToInteger(Value* fval, int lineNo, int columnNo) {
+    fprintf(stderr, "Codegen Error On Line %d Column %d: Implicit conversion from float to integer", lineNo, columnNo);
     return Builder.CreateFPToSI(fval, getIntegerType(), "float_int_conv");
 }
 
-// TODO: using cmp here might not actually return a 1-bit int value!!
-Value* floatToBool(Value* fval) {
+// Convert a float to a boolean value (Narrowing Conversion)
+Value* floatToBool(Value* fval, int lineNo, int columnNo) {
+    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from float to boolean", lineNo, columnNo);
     return Builder.CreateFCmpONE(fval, ConstantFP::get(TheContext, APFloat(0.0)), "float_bool_conv");
 }
 
+// Convert a boolean to integer value (Widening Conversion)
 Value* boolToInteger(Value* bval) {
     return Builder.CreateBitCast(bval, getIntegerType(), "bool_int_conv");
 }
 
+// Convert a boolean to a floating value (Widening Conversion)
 Value* boolToFloat(Value* bval) {
     return Builder.CreateUIToFP(bval, getFloatingType(), "bool_float_conv");
 }
 
+// Get Default Value for a type 
 Constant* getDefaultValue(Type* typ) {
-if (typ->isIntegerTy(1)) {
+    if (typ->isIntegerTy(1)) {
         return ConstantInt::get(getBooleanType(), APInt(1, 0, false));
     } else if (typ->isIntegerTy(32)) {
         return ConstantInt::get(getIntegerType(), APInt(32, 0, false));
@@ -151,30 +148,8 @@ if (typ->isIntegerTy(1)) {
 
 // performs necessary conversions s.t. lhs, and rhs are the same types (the wider of the two)
 std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs) {
-    // TODO: Change from SIToFP depending on int type signedness
-
-    // if (lhs->getType()->isFloatTy()) {
-    //     // Convert RHS to float
-    //     return std::pair(lhs, Builder.CreateSIToFP(rhs, lhs->getType(), "convert_to_float"));
-    // }
-
-    // if (rhs->getType()->isFloatTy()) {
-    //     // Convert LHS to float
-    //     return std::pair(Builder.CreateSIToFP(lhs, rhs->getType(), "convert_to_float"), rhs);
-    // }
-
-    // if (lhs->getType() == rhs->getType()) {
-    //     return std::pair(lhs, rhs);
-    // }
-
-    // if (lhs->getType()->canLosslesslyBitCastTo(rhs->getType())) {
-    //     return std::pair(Builder.CreateBitCast(lhs, rhs->getType(), "cast_a_b"), rhs);
-    // }
-
-    // if (rhs->getType()->canLosslesslyBitCastTo(lhs->getType())) {
-    //     return std::pair(lhs, Builder.CreateBitCast(rhs, lhs->getType(), "case_b_a"));
-    // }
-
+    if (!lhs || !rhs) return std::pair(nullptr, nullptr);
+    
     if (isFloatingType(lhs)) {
         if (isFloatingType(rhs)) {
             return std::pair(lhs, rhs);
@@ -221,19 +196,7 @@ std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs) {
     fprintf(stderr, "%d", isFloatingType(lhs));
     fprintf(stderr, "%d", isBooleanType(lhs));
     fprintf(stderr, "%d", isVoidType(lhs));
-    fprintf(stderr, "%d", isPointerType(lhs));
-    fprintf(stderr, "%d", isOpaquePointerType(lhs));
     
     fprintf(stderr, "Right Type: id: %d\n", lhs->getType()->getTypeID());
     return std::pair(nullptr, nullptr);
-
-    // // Both are not floats (i.e. ints)
-    // if (lhs->getType()->getIntegerBitWidth() > rhs->getType()->getIntegerBitWidth()) {
-    //     // Convert RHS to LHS bit width
-    //     // Builder.CreateIntCast(rhs, lhs->getType(), lhs->getType()->canLosslesslyBitCastTo());
-    // } else if (lhs->getType()->getIntegerBitWidth() < rhs->getType()->getIntegerBitWidth()) {
-    //     // Convert LHS to RHS bit width
-    // }
-
-    // return std::pair(lhs, rhs);
 }

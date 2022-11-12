@@ -40,9 +40,9 @@
 extern FILE *pFile;
 
 extern std::string IdentifierStr; // Filled in if IDENT
-extern int IntVal;                // Filled in if INT_LIT
-extern bool BoolVal;              // Filled in if BOOL_LIT
-extern float FloatVal;            // Filled in if FLOAT_LIT
+extern int IntVal;				  // Filled in if INT_LIT
+extern bool BoolVal;			  // Filled in if BOOL_LIT
+extern float FloatVal;			  // Filled in if FLOAT_LIT
 extern int lineNo;
 extern int columnNo;
 
@@ -50,78 +50,94 @@ extern llvm::LLVMContext TheContext;
 extern llvm::IRBuilder<> Builder;
 extern std::unique_ptr<llvm::Module> TheModule;
 
-extern std::map<std::string, llvm::AllocaInst* > NamedValues;
-extern std::map<std::string, llvm::Value* > GlobalNamedValues;
+extern std::map<std::string, llvm::AllocaInst *> NamedValues;
+extern std::map<std::string, llvm::AllocaInst *> *outerNamedValues;
+extern std::map<std::string, llvm::Value *> GlobalNamedValues;
+
+class Scope
+{
+	std::map<std::string, llvm::AllocaInst *> values;
+	Scope *super;
+
+public:
+	Scope() {}
+	Scope(Scope *super) : super(super) {}
+	llvm::AllocaInst *searchForValue(std::string string);
+	bool insertValue(std::string name, llvm::AllocaInst *val);
+	Scope createSubScope();
+};
 
 // LEXER DEFINITIONS
 
 // The lexer returns one of these for known things.
-enum TOKEN_TYPE {
+enum TOKEN_TYPE
+{
 
-  IDENT = -1,        // [a-zA-Z_][a-zA-Z_0-9]*
-  ASSIGN = int('='), // '='
+	IDENT = -1,		   // [a-zA-Z_][a-zA-Z_0-9]*
+	ASSIGN = int('='), // '='
 
-  // delimiters
-  LBRA = int('{'),  // left brace
-  RBRA = int('}'),  // right brace
-  LPAR = int('('),  // left parenthesis
-  RPAR = int(')'),  // right parenthesis
-  SC = int(';'),    // semicolon
-  COMMA = int(','), // comma
+	// delimiters
+	LBRA = int('{'),  // left brace
+	RBRA = int('}'),  // right brace
+	LPAR = int('('),  // left parenthesis
+	RPAR = int(')'),  // right parenthesis
+	SC = int(';'),	  // semicolon
+	COMMA = int(','), // comma
 
-  // types
-  INT_TOK = -2,   // "int"
-  VOID_TOK = -3,  // "void"
-  FLOAT_TOK = -4, // "float"
-  BOOL_TOK = -5,  // "bool"
+	// types
+	INT_TOK = -2,	// "int"
+	VOID_TOK = -3,	// "void"
+	FLOAT_TOK = -4, // "float"
+	BOOL_TOK = -5,	// "bool"
 
-  // keywords
-  EXTERN = -6,  // "extern"
-  IF = -7,      // "if"
-  ELSE = -8,    // "else"
-  WHILE = -9,   // "while"
-  RETURN = -10, // "return"
-  // TRUE   = -12,     // "true"
-  // FALSE   = -13,     // "false"
+	// keywords
+	EXTERN = -6,  // "extern"
+	IF = -7,	  // "if"
+	ELSE = -8,	  // "else"
+	WHILE = -9,	  // "while"
+	RETURN = -10, // "return"
+	// TRUE   = -12,     // "true"
+	// FALSE   = -13,     // "false"
 
-  // literals
-  INT_LIT = -14,   // [0-9]+
-  FLOAT_LIT = -15, // [0-9]+.[0-9]+
-  BOOL_LIT = -16,  // "true" or "false" key words
+	// literals
+	INT_LIT = -14,	 // [0-9]+
+	FLOAT_LIT = -15, // [0-9]+.[0-9]+
+	BOOL_LIT = -16,	 // "true" or "false" key words
 
-  // logical operators
-  AND = -17, // "&&"
-  OR = -18,  // "||"
+	// logical operators
+	AND = -17, // "&&"
+	OR = -18,  // "||"
 
-  // operators
-  PLUS = int('+'),    // addition or unary plus
-  MINUS = int('-'),   // substraction or unary negative
-  ASTERIX = int('*'), // multiplication
-  DIV = int('/'),     // division
-  MOD = int('%'),     // modular
-  NOT = int('!'),     // unary negation
+	// operators
+	PLUS = int('+'),	// addition or unary plus
+	MINUS = int('-'),	// substraction or unary negative
+	ASTERIX = int('*'), // multiplication
+	DIV = int('/'),		// division
+	MOD = int('%'),		// modular
+	NOT = int('!'),		// unary negation
 
-  // comparison operators
-  EQ = -19,      // equal
-  NE = -20,      // not equal
-  LE = -21,      // less than or equal to
-  LT = int('<'), // less than
-  GE = -23,      // greater than or equal to
-  GT = int('>'), // greater than
+	// comparison operators
+	EQ = -19,	   // equal
+	NE = -20,	   // not equal
+	LE = -21,	   // less than or equal to
+	LT = int('<'), // less than
+	GE = -23,	   // greater than or equal to
+	GT = int('>'), // greater than
 
-  // special tokens
-  EOF_TOK = 0, // signal end of file
+	// special tokens
+	EOF_TOK = 0, // signal end of file
 
-  // invalid
-  INVALID = -100 // signal invalid token
+	// invalid
+	INVALID = -100 // signal invalid token
 };
 
 // TOKEN struct is used to keep track of information about a token
-struct TOKEN {
-  int type = -100;
-  std::string lexeme;
-  int lineNo;
-  int columnNo;
+struct TOKEN
+{
+	int type = -100;
+	std::string lexeme;
+	int lineNo;
+	int columnNo;
 };
 
 TOKEN returnTok(std::string lexVal, int tok_type);
@@ -131,34 +147,32 @@ TOKEN gettok();
 // PARSER DEFINITIONS
 
 static std::map<int, int> BinopPrecedence = {
-  {OR,  10},
-  {AND, 20},
-  {EQ,  30},
-  {NE, 40},
-  {LE, 50},
-  {LT,  60},
-  {GE, 70},
-  {GT,  80},
-  {PLUS, 90},
-  {MINUS, 100},
-  {ASTERIX, 110},
-  {DIV, 120},
-  {MOD, 130}
-};
+	{OR, 10},
+	{AND, 20},
+	{EQ, 30},
+	{NE, 40},
+	{LE, 50},
+	{LT, 60},
+	{GE, 70},
+	{GT, 80},
+	{PLUS, 90},
+	{MINUS, 100},
+	{ASTERIX, 110},
+	{DIV, 120},
+	{MOD, 130}};
 
 static TOKEN CurTok;
 static std::deque<TOKEN> tok_buffer;
 
- TOKEN getNextToken();
+TOKEN getNextToken();
 
- void putBackToken(TOKEN tok);
+void putBackToken(TOKEN tok);
 
 // AST DEFINITIONS
 
 #include "mcast.hh"
 
 #include "mctypes.hh"
-
 
 std::unique_ptr<Program> parser();
 
