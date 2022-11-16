@@ -135,7 +135,7 @@ Value* integerToBool(Value* ival, int lineNo, int columnNo) {
 
 // Convert a float down to an integer (Narrowing Conversion)
 Value* floatToInteger(Value* fval, int lineNo, int columnNo) {
-    fprintf(stderr, "Codegen Error On Line %d Column %d: Implicit conversion from float to integer\n", lineNo, columnNo);
+    fprintf(stderr, "Codegen Warning On Line %d Column %d: Implicit conversion from float to integer\n", lineNo, columnNo);
     return Builder.CreateFPToSI(fval, getIntegerType(), "float_int_conv");
 }
 
@@ -228,13 +228,8 @@ std::pair<Value*, Value* > convertToWider(Value* lhs, Value* rhs) {
 
     // surely if one isn't float, and there's not a (bool)->signed int bit cast between then
     // what types would we be actually dealing with??
-    fprintf(stderr, "Not sure how to coerce these two types, can someone help??\t");
+    fprintf(stderr, "Codegen Error: Couldn't coerce these types together \t");
     fprintf(stderr, "Left Type: id: %d\t", lhs->getType()->getTypeID());
-    fprintf(stderr, "%d", isIntegerType(lhs));
-    fprintf(stderr, "%d", isFloatingType(lhs));
-    fprintf(stderr, "%d", isBooleanType(lhs));
-    fprintf(stderr, "%d", isVoidType(lhs));
-    
     fprintf(stderr, "Right Type: id: %d\n", lhs->getType()->getTypeID());
     return std::pair(nullptr, nullptr);
 }

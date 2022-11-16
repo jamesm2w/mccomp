@@ -4,3 +4,4 @@ mccomp
 output.ll
 Makefile
 tests/
+hardertests/

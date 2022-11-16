@@ -110,8 +110,7 @@ Value *FunctionCallLiteral::codegen() {
 
     std::vector<Value *> argsv;
     for (uint i = 0, e = args.size(); i != e; ++i) {
-        // TODO: Type Checking on Arguments to Functions
-		Value* argv = args[i]->codegen();
+        Value* argv = args[i]->codegen();
 		if (callee->getArg(i)->getType()->isIntegerTy(1)) {
 			argv = convertToBool(argv);
 		} else if (callee->getArg(i)->getType()->isIntegerTy(32)) {
@@ -119,6 +118,7 @@ Value *FunctionCallLiteral::codegen() {
 		} else if (callee->getArg(i)->getType()->isFloatTy()) {
 			argv = convertToFloat(argv);
 		}
+
 		if (!argv) return nullptr;
 
         argsv.push_back(argv);
@@ -341,7 +341,6 @@ Value *BinaryOp::codegen() {
 // Generate a store for the local/global variable with an expression
 Value *AssignExpr::codegen() {
     Value *ex = expr->codegen();
-    // TODO: typechecking on AssignExpr
     if (!ex)
         return nullptr;
 
@@ -349,13 +348,40 @@ Value *AssignExpr::codegen() {
     AllocaInst *alloca = scope_ptr.searchForValue(ident.lexeme);
     if (!alloca) {
         // If not found in the symbol table then try the global variable map
-        Value *GV = GlobalNamedValues[ident.lexeme];
+        GlobalVariable *GV = (GlobalVariable*)GlobalNamedValues[ident.lexeme];
         if (!GV) {
             // If not a local or global not a defined identifier
             return ThrowValueError("On Line %d Column %d: Unknown identifier \"%s\".", ident.lineNo, ident.columnNo, ident.lexeme.c_str());
         }
 
+        Type* globalType = GV->getValueType();
+        Type* exprType = ex->getType();
+        if (globalType != exprType) {
+            fprintf(stderr, "Warning: On Line %d Column %d: Implicit case storing value in global variable", ident.lineNo, ident.columnNo);
+            if (globalType->isFloatTy()) {
+                ex = convertToFloat(ex);
+            } else if (globalType->isIntegerTy(1)) {
+                ex = convertToBool(ex);
+            } else if (globalType->isIntegerTy(32)) {
+                ex = convertToInteger(ex);
+            }
+        }
+
         return Builder.CreateStore(ex, GV);
+    }
+
+    Type* allocaType = alloca->getAllocatedType();
+    Type* exprType = ex->getType();
+
+    if (allocaType != exprType) {
+        fprintf(stderr, "Warning: On Line %d Column %d: Implict cast storing value in expression", ident.lineNo, ident.columnNo);
+        if (allocaType->isFloatTy()) {
+            ex = convertToFloat(ex);
+        } else if (allocaType->isIntegerTy(1)) {
+            ex = convertToBool(ex);
+        } else if (allocaType->isIntegerTy(32)) {
+            ex = convertToInteger(ex);
+        }
     }
 
     return Builder.CreateStore(ex, alloca);
@@ -363,7 +389,6 @@ Value *AssignExpr::codegen() {
 
 // Define a local variable in the current function/block
 Value *LocalDecl::codegen() {
-    // TODO: Test local decls on sub-blocks and how that interacts with scope
     // Create the alloca instance at the entry block to the function
     AllocaInst *alloca = createEntryBlockAlloca(Builder.GetInsertBlock()->getParent(), getTokType(type), ident.lexeme);
 
@@ -538,14 +563,25 @@ Value *Program::codegen() {
 
 // Create the return statement
 Value *ReturnStmt::codegen() {
-    // TODO: Type Checking on return statement
+    Type* functionReturn = Builder.GetInsertBlock()->getParent()->getReturnType();
+
     if (expr.has_value()) {
         Value *val = expr->get()->codegen();
         if (!val)
             return nullptr;
 
+        Type* valTy = val->getType();
+        if (functionReturn != valTy) {
+            return ThrowValueError("Return expression is of the wrong type.");
+        }
+
         return Builder.CreateRet(val);
     } else {
+
+        if (!functionReturn->isVoidTy()) {
+            return ThrowValueError("Function was not declared void but no return value was provided.");
+        }
+
         return Builder.CreateRetVoid();
     }
 }
@@ -568,7 +604,6 @@ Value *IfStmt::codegen() {
     if (!cond)
         return nullptr;
 
-    // TODO: Remove comp here if we're already converting to bool;
     // Not Equal to 0 => True
     // Value* comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 0, false)), "cond_branch");
 
@@ -616,14 +651,13 @@ Value *WhileStmt::codegen() {
     Builder.CreateBr(cond_check);
     Builder.SetInsertPoint(cond_check);
     Value *cond = expr->codegen();
+    cond = convertToBool(cond);
     if (!cond)
         return nullptr;
 
-    // TODO: Bool conversion on while loop?
     // Not equal to 0 => True
-
-    Value *comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 0, false)), "loop_cond");
-    Builder.CreateCondBr(comp, block_, end_);
+    // Value *comp = Builder.CreateICmpNE(cond, ConstantInt::get(TheContext, APInt(1, 0, false)), "loop_cond");
+    Builder.CreateCondBr(cond, block_, end_);
 
     // Code block executes the body of the while loop
     TheFunction->getBasicBlockList().push_back(block_);
